@@ -4,7 +4,7 @@ import {
   Home, Users, BookOpen, CreditCard, Award, Settings,
   Plus, Search, Edit, Trash2, Eye, Download, X,
   GraduationCap, BarChart3, CheckCircle, XCircle, FileText,
-  LogOut, EyeOff, Mail, Shield, Clock, Lock, Phone
+  LogOut, EyeOff, Mail, Shield, Clock, Lock, Phone,
   ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
