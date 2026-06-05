@@ -1593,7 +1593,7 @@ const exportData = async (type: string) => {
         )}
         </main>
       </div>
-    </div bm>
+    </div>
   );
 };
 
