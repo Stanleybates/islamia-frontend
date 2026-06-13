@@ -688,12 +688,15 @@ const exportData = async (type: string) => {
     const app = applications.find(a => a.id === appId);
     const dbId = appId.replace('APP-', '');
     const status = action === 'Accepted' ? 'Approved' : 'Denied';
+
     if (useBackend) {
       try {
         const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
         const token = s?.token;
         const headers: any = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        // Update application status first
         const res = await fetch(apiUrl('/api/admin/applications/' + parseInt(dbId)), {
           method: 'PUT', headers,
           body: JSON.stringify({ status }),
@@ -701,10 +704,30 @@ const exportData = async (type: string) => {
         if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed to update'); }
         setApplications(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
         toast.success(`Application ${appId} ${action.toLowerCase()}. Notification sent to ${app?.fullName}.`);
+
+        // If approved, automatically confirm payment (backend will verify Paystack or mark manual)
+        if (status === 'Approved') {
+          try {
+            const res2 = await fetch(apiUrl('/api/admin/applications/' + parseInt(dbId) + '/confirm'), {
+              method: 'PUT', headers,
+              body: JSON.stringify({ manual: true }),
+            });
+            const d2 = await res2.json();
+            if (!res2.ok) throw new Error(d2.message || 'Payment confirm failed');
+            // update application entry from server response if provided
+            if (d2.application) setApplications(prev => prev.map(a => a.id === appId ? d2.application : a));
+            toast.success(d2.message || 'Payment confirmed and student enrolled.');
+            await loadDashboardData();
+          } catch (e: any) {
+            toast.error(e.message || 'Auto-confirm payment failed');
+          }
+        }
       } catch (e: any) { toast.error(e.message); }
       return;
     }
-    const updated = applications.map((a) => a.id === appId ? { ...a, status: action } : a);
+
+    // Local/offline mode: update app locally and mark enrolled when accepted
+    const updated = applications.map((a) => a.id === appId ? { ...a, status: action === 'Accepted' ? 'Enrolled' : action } : a);
     setApplications(updated);
     localStorage.setItem("ami_applications", JSON.stringify(updated));
     toast.success(`Application ${appId} ${action.toLowerCase()}.`);
