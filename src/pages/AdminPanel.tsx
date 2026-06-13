@@ -710,7 +710,48 @@ const exportData = async (type: string) => {
     toast.success(`Application ${appId} ${action.toLowerCase()}.`);
   };
 
-  const handleConfirmPayment = (appId: string) => {
+  const handleConfirmPayment = async (appId: string) => {
+    const app = applications.find((a) => a.id === appId);
+    if (!app) return;
+
+    if (useBackend) {
+      try {
+        const reference = window.prompt('Enter Paystack transaction reference for this payment, or leave blank for manual confirmation:');
+        const dbId = parseInt(appId.replace('APP-', ''), 10);
+        const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+        const token = s?.token;
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const body: any = {};
+        if (reference?.trim()) {
+          body.reference = reference.trim();
+        } else {
+          body.manual = true;
+        }
+
+        const res = await fetch(apiUrl('/api/admin/applications/' + dbId + '/confirm'), {
+          method: 'PUT', headers,
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to confirm payment');
+
+        const updatedApp = data.application;
+        setApplications((prev) => prev.map((a) => a.id === appId ? {
+          ...a,
+          status: updatedApp.status || 'Enrolled',
+          regNumber: updatedApp.reg_number || a.regNumber,
+        } : a));
+
+        await loadDashboardData();
+        toast.success(`Payment confirmed and recorded for ${app.fullName}.`);
+      } catch (e: any) {
+        toast.error(e.message || 'Failed to confirm payment');
+      }
+      return;
+    }
+
     const year = new Date().getFullYear().toString().slice(-2);
     const paidApps = applications.filter((a) => a.regNumber && a.regNumber.startsWith("AMI/"));
     const nextPosition = paidApps.length + 1;
@@ -718,7 +759,6 @@ const exportData = async (type: string) => {
     const updated = applications.map((a) => a.id === appId ? { ...a, status: "Enrolled", regNumber } : a);
     setApplications(updated);
     localStorage.setItem("ami_applications", JSON.stringify(updated));
-    const app = applications.find(a => a.id === appId);
     if (app) {
       const pin = String(Math.floor(1000 + Math.random() * 9000));
       const accounts = JSON.parse(localStorage.getItem("ami_student_accounts") || "[]");
@@ -1225,12 +1265,12 @@ const exportData = async (type: string) => {
                       {paymentsState.map((p) => (
                         <tr key={p.id} className="border-b border-border last:border-0">
                           <td className="p-4 text-muted-foreground">{p.id}</td>
-                          <td className="p-4 font-medium text-foreground">{p.student || p.user_name || p.user}</td>
+                          <td className="p-4 font-medium text-foreground">{p.student || p.student_name || p.user_name || p.user || p.student_index_number || p.student_email || '-'}</td>
                           <td className="p-4 text-center font-semibold text-foreground">{typeof p.amount === 'number' ? `GHS ${p.amount}` : p.amount}</td>
                           <td className="p-4 text-center text-muted-foreground">{p.method || p.payment_method || '-'}</td>
                           <td className="p-4 text-center text-muted-foreground">{(p.created_at || p.date || '').split('T')[0]}</td>
                           <td className="p-4 text-center">
-                            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${p.status === "Completed" || p.status === 'approved' ? "bg-primary/10 text-primary" : p.status === "Pending" || p.status === 'pending' ? "bg-accent/10 text-accent" : "bg-destructive/10 text-destructive"}`}>{p.status}</span>
+                            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${p.status === "Completed" || p.status === 'approved' || p.status === 'paid' ? "bg-primary/10 text-primary" : p.status === "Pending" || p.status === 'pending' ? "bg-accent/10 text-accent" : "bg-destructive/10 text-destructive"}`}>{p.status}</span>
                           </td>
                         </tr>
                       ))}

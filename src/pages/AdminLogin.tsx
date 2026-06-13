@@ -66,7 +66,7 @@ const AdminLogin = () => {
                 </button>
               </div>
             </div>
-            <Button className="w-full" onClick={handleLogin} disabled={loading}>{loading ? "Logging in..." : "Log In"}</Button>
+            <Button variant="gold" className="w-full" onClick={handleLogin} disabled={loading}>{loading ? "Logging in..." : "Log In"}</Button>
             <div className="flex items-center justify-between text-sm mt-2">
               <Link to="/admin/forgot" className="text-primary">Forgot Password?</Link>
               <Link to="/admin/signup" className="text-primary">Sign Up</Link>

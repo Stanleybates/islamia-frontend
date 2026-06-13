@@ -47,7 +47,7 @@ const StudentLogin = () => {
           <div className="space-y-3">
             <input value={indexNumber} onChange={(e) => setIndexNumber(e.target.value)} placeholder="Index number" className="w-full px-3 py-2 border rounded" />
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full px-3 py-2 border rounded" />
-            <Button className="w-full" onClick={handleLogin}>Log In</Button>
+            <Button variant="gold" className="w-full" onClick={handleLogin}>Log In</Button>
             <div className="flex items-center justify-between text-sm mt-2">
               <Link to="/student/forgot" className="text-primary">Forgot Password?</Link>
               <Link to="/student/signup" className="text-primary">Sign Up</Link>
