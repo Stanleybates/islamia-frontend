@@ -45,7 +45,7 @@ const StudentSignup = () => {
             <input value={indexNumber} onChange={(e) => setIndexNumber(e.target.value)} placeholder="Index number" className="w-full px-3 py-2 border rounded" />
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" className="w-full px-3 py-2 border rounded" />
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (4 digits)" className="w-full px-3 py-2 border rounded" />
-            <Button className="w-full" onClick={handleSignUp}>Sign Up</Button>
+            <Button variant="gold" className="w-full" onClick={handleSignUp}>Sign Up</Button>
             <div className="text-sm text-center mt-2">
               <Link to="/student/login" className="text-primary">Already registered? Log in</Link>
             </div>

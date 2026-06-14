@@ -57,7 +57,7 @@ const AdminSignup = () => {
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full px-3 py-2 border rounded" />
             <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm Password" className="w-full px-3 py-2 border rounded" />
             <p className="text-sm text-muted-foreground">This form is for Sub Admin sign-up requests only. Super Admin credentials are managed on the backend.</p>
-            <Button className="w-full" onClick={handleSignup} disabled={loading}>
+            <Button variant="gold" className="w-full" onClick={handleSignup} disabled={loading}>
               {loading ? "Submitting..." : "Request Sub Admin Approval"}
             </Button>
             <div className="text-sm text-center mt-2">

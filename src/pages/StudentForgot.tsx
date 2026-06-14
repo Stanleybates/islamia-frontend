@@ -55,7 +55,7 @@ const StudentForgot = () => {
                 <label className="text-sm block mb-1">Phone Number</label>
                 <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="Your registered phone number" />
               </div>
-              <Button className="w-full" onClick={handleRequest} disabled={loading}>
+              <Button variant="gold" className="w-full" onClick={handleRequest} disabled={loading}>
                 {loading ? "Sending..." : "Send Temporary Password"}
               </Button>
               <div className="text-sm text-center mt-2">

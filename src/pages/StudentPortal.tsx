@@ -279,7 +279,7 @@ const StudentPortal = () => {
                       </button>
                     </div>
                   </div>
-                  <Button variant="default" className="w-full py-3 text-base font-semibold" onClick={isSignUp ? handleSignUp : handleLogin}>
+                  <Button variant="gold" className="w-full py-3 text-base font-semibold" onClick={isSignUp ? handleSignUp : handleLogin}>
                     {isSignUp ? "Sign Up" : "Log In"}
                   </Button>
                 </div>
@@ -314,7 +314,7 @@ const StudentPortal = () => {
                         <input value={forgotPhone} onChange={(e) => setForgotPhone(e.target.value)} className={`${inputClass} pl-10`} placeholder="+233 XX XXX XXXX" type="tel" />
                       </div>
                     </div>
-                    <Button variant="default" className="w-full" onClick={handleForgotRequest}>
+                    <Button variant="gold" className="w-full" onClick={handleForgotRequest}>
                       Send Reset Code
                     </Button>
                   </div>
@@ -339,7 +339,7 @@ const StudentPortal = () => {
                         inputMode="numeric"
                       />
                     </div>
-                    <Button variant="default" className="w-full" onClick={handleVerifyCode} disabled={resetTimer <= 0}>
+                    <Button variant="gold" className="w-full" onClick={handleVerifyCode} disabled={resetTimer <= 0}>
                       Verify Code
                     </Button>
                   </div>
@@ -371,7 +371,7 @@ const StudentPortal = () => {
                         inputMode="numeric"
                       />
                     </div>
-                    <Button variant="default" className="w-full" onClick={handleResetPassword}>
+                    <Button variant="gold" className="w-full" onClick={handleResetPassword}>
                       Reset Password
                     </Button>
                   </div>

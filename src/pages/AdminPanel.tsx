@@ -119,7 +119,7 @@ const FeeSettingsTab = () => {
     notify ? setNotifying(true) : setLoading(true);
     setMsg('');
     try {
-      const endpoint = notify ? '/api/admin/settings/notify' : '/api/admin/settings';
+      const endpoint = notify ? apiUrl('/api/admin/settings/notify') : apiUrl('/api/admin/settings');
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
@@ -1024,7 +1024,7 @@ const exportData = async (type: string) => {
                           </button>
                           {app.status === "Pending" && isSuperAdmin && (
                             <>
-                              <Button size="sm" variant="default" className="gap-1" onClick={() => handleAdmissionAction(app.id, "Accepted")}>
+                              <Button size="sm" variant="gold" className="gap-1" onClick={() => handleAdmissionAction(app.id, "Accepted")}>
                                 <CheckCircle size={14} /> Accept
                               </Button>
                               <Button size="sm" variant="destructive" className="gap-1" onClick={() => handleAdmissionAction(app.id, "Declined")}>
@@ -1033,7 +1033,7 @@ const exportData = async (type: string) => {
                             </>
                           )}
                           {app.status === "Approved" && isSuperAdmin && (
-                            <Button size="sm" variant="default" className="gap-1" onClick={() => handleConfirmPayment(app.id)}>
+                            <Button size="sm" variant="gold" className="gap-1" onClick={() => handleConfirmPayment(app.id)}>
                               <CreditCard size={14} /> Confirm Payment
                             </Button>
                           )}
@@ -1084,7 +1084,7 @@ const exportData = async (type: string) => {
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`${inputClass} pl-10`} placeholder="Search students..." />
                 </div>
-{isSuperAdmin && <Button onClick={() => setShowAddStudent(true)} className="gap-2"><Plus size={16} /> Add Student</Button>}
+{isSuperAdmin && <Button variant="gold" onClick={() => setShowAddStudent(true)} className="gap-2"><Plus size={16} /> Add Student</Button>}
               </div>
               {showAddStudent && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
@@ -1142,7 +1142,7 @@ const exportData = async (type: string) => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h2 className="font-heading text-lg font-bold text-foreground">Courses</h2>
-{isSuperAdmin && <Button onClick={() => setShowAddCourse(true)} className="gap-2"><Plus size={16} /> Add Course</Button>}
+{isSuperAdmin && <Button variant="gold" onClick={() => setShowAddCourse(true)} className="gap-2"><Plus size={16} /> Add Course</Button>}
               </div>
               {showAddCourse && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
@@ -1194,7 +1194,7 @@ const exportData = async (type: string) => {
                   <h2 className="font-heading text-lg font-bold text-foreground">Grades & Results</h2>
                   <p className="text-sm text-muted-foreground mt-1">{pendingGradeCount} grade{pendingGradeCount === 1 ? "" : "s"} pending approval.</p>
                 </div>
-                <Button onClick={() => setShowAddGrade(true)} className="gap-2"><Plus size={16} /> Add Grade</Button>
+                <Button variant="gold" onClick={() => setShowAddGrade(true)} className="gap-2"><Plus size={16} /> Add Grade</Button>
               </div>
               {showAddGrade && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
@@ -1308,7 +1308,7 @@ const exportData = async (type: string) => {
               <div className="flex items-center justify-between">
                 <h2 className="font-heading text-lg font-bold text-foreground">Staff Directory</h2>
                 {isSuperAdmin && (
-                  <Button onClick={() => setShowAddStaff(true)} className="gap-2"><Plus size={16} /> Add Staff</Button>
+                  <Button variant="gold" onClick={() => setShowAddStaff(true)} className="gap-2"><Plus size={16} /> Add Staff</Button>
                 )}
               </div>
               {showAddStaff && isSuperAdmin && (
@@ -1424,7 +1424,7 @@ const exportData = async (type: string) => {
                           }`}>{a.status}</span>
                           {a.role !== "super" && a.status === "pending" && (
                             <>
-                              <Button size="sm" variant="default" className="gap-1" onClick={async () => {
+                              <Button size="sm" variant="gold" className="gap-1" onClick={async () => {
                                 if (useBackend) {
                                   await approveAdminBackend(a.id);
                                   return;
@@ -1478,7 +1478,7 @@ const exportData = async (type: string) => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="font-heading text-lg font-bold text-foreground">Assessments</h2>
-                <Button onClick={() => setShowAddAssessment(true)} className="gap-2"><Plus size={16} /> Add Assessment</Button>
+                <Button variant="gold" onClick={() => setShowAddAssessment(true)} className="gap-2"><Plus size={16} /> Add Assessment</Button>
               </div>
               {showAddAssessment && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
