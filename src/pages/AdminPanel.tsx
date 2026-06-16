@@ -733,70 +733,7 @@ const exportData = async (type: string) => {
     toast.success(`Application ${appId} ${action.toLowerCase()}.`);
   };
 
-  const handleConfirmPayment = async (appId: string) => {
-    const app = applications.find((a) => a.id === appId);
-    if (!app) return;
 
-    if (useBackend) {
-      try {
-        const reference = window.prompt('Enter Paystack transaction reference for this payment, or leave blank for manual confirmation:');
-        const dbId = parseInt(appId.replace('APP-', ''), 10);
-        const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-        const token = s?.token;
-        const headers: any = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const body: any = {};
-        if (reference?.trim()) {
-          body.reference = reference.trim();
-        } else {
-          body.manual = true;
-        }
-
-        const res = await fetch(apiUrl('/api/admin/applications/' + dbId + '/confirm'), {
-          method: 'PUT', headers,
-          body: JSON.stringify(body),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Failed to confirm payment');
-
-        const updatedApp = data.application;
-        setApplications((prev) => prev.map((a) => a.id === appId ? {
-          ...a,
-          status: updatedApp.status || 'Enrolled',
-          regNumber: updatedApp.reg_number || a.regNumber,
-        } : a));
-
-        await loadDashboardData();
-        toast.success(`Payment confirmed and recorded for ${app.fullName}.`);
-      } catch (e: any) {
-        toast.error(e.message || 'Failed to confirm payment');
-      }
-      return;
-    }
-
-    const year = new Date().getFullYear().toString().slice(-2);
-    const paidApps = applications.filter((a) => a.regNumber && a.regNumber.startsWith("AMI/"));
-    const nextPosition = paidApps.length + 1;
-    const regNumber = `AMI/${year}/${String(nextPosition).padStart(3, "0")}`;
-    const updated = applications.map((a) => a.id === appId ? { ...a, status: "Enrolled", regNumber } : a);
-    setApplications(updated);
-    localStorage.setItem("ami_applications", JSON.stringify(updated));
-    if (app) {
-      const pin = String(Math.floor(1000 + Math.random() * 9000));
-      const accounts = JSON.parse(localStorage.getItem("ami_student_accounts") || "[]");
-      accounts.push({ indexNumber: regNumber, regNumber, password: pin, name: app.fullName, email: app.email });
-      localStorage.setItem("ami_student_accounts", JSON.stringify(accounts));
-      const notifications = JSON.parse(localStorage.getItem("ami_notifications") || "[]");
-      notifications.push({
-        id: Date.now(), appId, email: app.email, fullName: app.fullName,
-        message: `Payment confirmed! Your index number is ${regNumber} and your password is ${pin}. You can now log in to the Student Portal. Welcome to Allāhul Musta'ān Institute!`,
-        status: "Enrolled", date: new Date().toISOString(), read: false,
-      });
-      localStorage.setItem("ami_notifications", JSON.stringify(notifications));
-    }
-    toast.success(`Payment confirmed! Registration number ${regNumber} assigned.`);
-  };
 
   const filteredStudents = students.filter((s) =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.id.toLowerCase().includes(searchQuery.toLowerCase())
@@ -1032,11 +969,7 @@ const exportData = async (type: string) => {
                               </Button>
                             </>
                           )}
-                          {app.status === "Approved" && isSuperAdmin && (
-                            <Button size="sm" variant="gold" className="gap-1" onClick={() => handleConfirmPayment(app.id)}>
-                              <CreditCard size={14} /> Confirm Payment
-                            </Button>
-                          )}
+
                         </div>
                       </div>
                     </div>

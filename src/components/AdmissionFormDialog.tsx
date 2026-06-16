@@ -2,7 +2,6 @@ import { useState } from "react";
 import { X, GraduationCap, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 interface AdmissionFormDialogProps {
   open: boolean;
@@ -101,23 +100,16 @@ const AdmissionFormDialog = ({ open, onClose }: AdmissionFormDialogProps) => {
         application_code: appId,
       };
 
-      const { error: supabaseError } = await supabase.from("applications").insert(payload);
-      if (supabaseError) {
-        console.warn("Supabase application insert failed, falling back to local storage.", supabaseError);
-      }
-
-      // Mirror in localStorage so legacy admin views still work
-      const applications = JSON.parse(localStorage.getItem("ami_applications") || "[]");
-      applications.push({
-        ...formData,
-        languages: formData.languages.join(", "),
-        id: appId,
-        dbId: appId,
-        regNumber: "",
-        status: "Pending",
-        date: new Date().toISOString().split("T")[0],
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(apiUrl + '/api/auth/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-      localStorage.setItem("ami_applications", JSON.stringify(applications));
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Failed to submit application');
+      }
 
       setAssignedRegNumber(appId);
       setStep(3);

@@ -12,8 +12,11 @@ const PaymentSection = () => {
   const [fee, setFee] = useState<number | null>(null);
   const [semester, setSemester] = useState<string | null>(null);
   const [loadingSettings, setLoadingSettings] = useState(true);
+  const [admissionId, setAdmissionId] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [lookupMsg, setLookupMsg] = useState('');
+  const [isApproved, setIsApproved] = useState(false);
 
   const loadSettings = () => {
     console.log('Fetching settings from:', apiUrl('/api/admin/settings'));
@@ -30,6 +33,13 @@ const PaymentSection = () => {
   useEffect(() => {
     loadSettings();
     const interval = setInterval(loadSettings, 30000);
+    // Auto-fill from payment link (?code=...)
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code) {
+      setAdmissionId(code.toUpperCase());
+      lookupAdmission(code);
+    }
     return () => clearInterval(interval);
   }, []);
 
@@ -39,7 +49,26 @@ const PaymentSection = () => {
     { icon: Building2, title: 'Pay with Bank Transfer', subtitle: 'Direct bank account transfer', channel: 'Bank Transfer' },
   ];
 
+  const lookupAdmission = async (code: string) => {
+    if (code.length < 8) return;
+    try {
+      const res = await fetch(apiUrl('/api/auth/admission-lookup?code=' + encodeURIComponent(code)));
+      const data = await res.json();
+      if (res.ok) {
+        setEmail(data.email || '');
+        setPhone(data.phone || '');
+        setIsApproved(true);
+        setLookupMsg('Welcome, ' + data.name + '! Details pre-filled.');
+      } else {
+        setEmail(''); setPhone('');
+        setIsApproved(false);
+        setLookupMsg(data.message || 'No approved application found.');
+      }
+    } catch { setLookupMsg('Could not look up Admission ID.'); }
+  };
+
   const handlePay = async (method: string, channel: string) => {
+    if (!isApproved) { toast.error('Please enter a valid Admission ID first'); return; }
     if (!email.trim() || !phone.trim()) {
       toast.error('Please enter your email and phone number');
       return;
@@ -123,7 +152,11 @@ const PaymentSection = () => {
 
           {status === 'idle' && (
             <div className="px-6 py-4 space-y-3 border-b border-border">
-              <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" type="email" className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background" />
+              <div>
+                <input value={admissionId} onChange={e => { const v = e.target.value.toUpperCase(); setAdmissionId(v); setLookupMsg(''); setIsApproved(false); if (v.length >= 8) lookupAdmission(v); }} placeholder="Admission ID (e.g. APP-XXXXXX)" type="text" className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background" />
+                {lookupMsg && <p className={'text-xs mt-1 ' + (isApproved ? 'text-green-600' : 'text-destructive')}>{lookupMsg}</p>}
+              </div>
+              <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address (auto-filled)" type="email" className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background" />
               <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" type="tel" className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background" />
             </div>
           )}
