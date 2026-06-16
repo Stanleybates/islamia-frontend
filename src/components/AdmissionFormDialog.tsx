@@ -111,7 +111,8 @@ const AdmissionFormDialog = ({ open, onClose }: AdmissionFormDialogProps) => {
         throw new Error(err.message || 'Failed to submit application');
       }
 
-      setAssignedRegNumber(appId);
+      const data = await res.json();
+     setAssignedRegNumber(data.application_code);
       setStep(3);
     } catch (err: any) {
       toast.error("Could not submit application", { description: err?.message ?? "Please try again." });
