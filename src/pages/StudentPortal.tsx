@@ -61,12 +61,13 @@ const StudentPortal = () => {
       }
       if (Array.isArray(notifRes)) setPortalNotifications(notifRes);
       if (Array.isArray(assessmentsRes)) setStudentAssessments(assessmentsRes);
-      if (Array.isArray(coursesRes) && coursesRes.length > 0) {
+      if (Array.isArray(coursesRes)) {
         setStudentCourses(coursesRes.map((c: any) => ({
+          id: c.id,
           title: c.title,
           semester: c.semester,
-          progress: 0,
-          grade: '—',
+          enrolled: c.enrolled,
+          status: c.status,
         })));
       }
     } catch (e) { console.error(e); }
@@ -496,13 +497,52 @@ const StudentPortal = () => {
 
         {activeTab === "courses" && (
           <div className="space-y-4">
-            {studentCourses.map((course) => (
-              <div key={course.title} className="bg-card rounded-xl border border-border p-5 flex items-center justify-between">
-                <div>
-                  <h4 className="font-heading text-base font-semibold text-foreground">{course.title}</h4>
-                  <p className="text-sm text-muted-foreground mt-1">{course.semester} · Progress: {course.progress}%</p>
+            <div className="bg-card rounded-xl border border-border p-5">
+              <h3 className="font-heading text-lg font-semibold text-foreground mb-1">Course Registration</h3>
+              <p className="text-sm text-muted-foreground">
+                Below are the courses available for your semester. Register for the ones you want to enroll in.
+              </p>
+            </div>
+            {studentCourses.length === 0 && (
+              <div className="bg-card rounded-xl border border-border p-8 text-center text-muted-foreground">
+                No courses available for your semester yet. Check back later.
+              </div>
+            )}
+            {studentCourses.map((course: any) => (
+              <div key={course.id} className="bg-card rounded-xl border border-border p-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                    <BookOpen size={18} />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-heading text-base font-semibold text-foreground truncate">{course.title}</h4>
+                    <p className="text-sm text-muted-foreground mt-0.5">{course.semester}</p>
+                  </div>
                 </div>
-                <span className="inline-block bg-primary/10 text-primary text-sm font-bold px-3 py-1 rounded-full">{course.grade}</span>
+                <Button
+                  variant={course.enrolled ? "outline" : "gold"}
+                  className="flex-shrink-0 text-sm px-4 py-2"
+                  onClick={async () => {
+                    const session = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
+                    const token = session?.token;
+                    const method = course.enrolled ? 'DELETE' : 'POST';
+                    try {
+                      const res = await fetch(apiUrl(`/api/student/courses/${course.id}/enroll`), {
+                        method,
+                        headers: { Authorization: 'Bearer ' + token },
+                      });
+                      if (res.ok) {
+                        toast.success(course.enrolled ? 'Unenrolled successfully' : 'Enrolled successfully!');
+                        loadStudentData();
+                      } else {
+                        const err = await res.json();
+                        toast.error(err.message || 'Failed');
+                      }
+                    } catch(e) { toast.error('Network error'); }
+                  }}
+                >
+                  {course.enrolled ? 'Unenroll' : 'Enroll'}
+                </Button>
               </div>
             ))}
           </div>
