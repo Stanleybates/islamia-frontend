@@ -52,7 +52,7 @@ const initialGrades: Grade[] = [
   { id: "GRD004", student: "Khadijah Bello", course: "Expression & Communication 1", midterm: 70, final: 75, grade: "B", status: "approved", enteredBy: "system", enteredAt: new Date().toISOString(), approvedBy: "system", approvedAt: new Date().toISOString() },
 ];
 
-type Tab = "overview" | "students" | "courses" | "assigned-courses" | "grades" | "payments" | "admissions" | "staff" | "admins" | "settings" | "fee" | "assessments";
+type Tab = "overview" | "students" | "courses" | "assigned-courses" | "grades" | "payments" | "admissions" | "staff" | "admins" | "course-assignments" | "settings" | "fee" | "assessments";
 
 const sidebarItems: { key: Tab; label: string; icon: any; superOnly?: boolean }[] = [
   { key: "overview", label: "Overview", icon: BarChart3 },
@@ -64,6 +64,7 @@ const sidebarItems: { key: Tab; label: string; icon: any; superOnly?: boolean }[
   { key: "payments", label: "Payments", icon: CreditCard },
   { key: "staff", label: "Staff", icon: Users },
   { key: "admins", label: "Admin Approvals", icon: Shield, superOnly: true },
+  { key: "course-assignments", label: "Course Assignments", icon: ClipboardList, superOnly: true },
   { key: "assessments", label: "Assessments", icon: ClipboardList },
   { key: "settings", label: "Settings", icon: Settings },
   { key: "fee", label: "Fee & Semester", icon: CreditCard, superOnly: true },
@@ -296,10 +297,12 @@ const AdminPanel = () => {
   const [editingRole, setEditingRole] = useState<string>("");
   const [editingAdminStatus, setEditingAdminStatus] = useState<string>("");
   const [editingAdminCourses, setEditingAdminCourses] = useState<string[]>([]);
+  const [assignmentAdminId, setAssignmentAdminId] = useState<string>("");
+  const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string[]>>({});
   const [dataLoading, setDataLoading] = useState(false);
   const [assessments, setAssessments] = useState<any[]>([]);
   const [showAddAssessment, setShowAddAssessment] = useState(false);
-  const [newAssessment, setNewAssessment] = useState({ title: "", course: "", type: "Exam", posted: "", examDates: "", status: "Posted", weight: "", duration: "60", questionsText: "" });
+  const [newAssessment, setNewAssessment] = useState({ title: "", course: "", type: "Exam", posted: "", examDates: "", status: "Posted", weight: "", duration: "60", examLink: "" });
 
   const refreshAdminAccounts = () => {
     setAdminAccounts(JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]"));
@@ -871,6 +874,58 @@ const exportData = async (type: string) => {
   };
   const inputClass = "w-full px-4 py-2.5 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none";
   const glassInputClass = "w-full px-4 py-2.5 rounded-lg border border-white/20 bg-white/10 text-white text-sm placeholder:text-white/50 focus:ring-2 focus:ring-white/30 focus:border-white/40 outline-none backdrop-blur-sm";
+  const getAssignedCourseTitles = (courseIds: string[]) => courseIds.map((courseId) => getCourseTitle(courseId, courses));
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    setAssignmentAdminId((prev) => {
+      if (prev && adminAccounts.some((admin) => admin.id === prev && admin.role !== "super")) return prev;
+      const firstTarget = adminAccounts.find((admin) => admin.role !== "super");
+      return firstTarget?.id || "";
+    });
+  }, [adminAccounts, isSuperAdmin]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    setAssignmentDrafts((prev) => {
+      const next: Record<string, string[]> = { ...prev };
+      adminAccounts.forEach((admin) => {
+        if (admin.role === "super") return;
+        if (!next[admin.id]) next[admin.id] = normalizeAssignedCourses(admin.assignedCourses);
+      });
+      return next;
+    });
+  }, [adminAccounts, isSuperAdmin]);
+
+  const saveCourseAssignments = async (adminId: string, courseIds: string[]) => {
+    const normalizedAssignedCourses = Array.from(new Set(courseIds));
+    const targetAdmin = adminAccounts.find((admin) => admin.id === adminId);
+    if (!targetAdmin) return;
+    if (targetAdmin.role === "super") {
+      toast.error("Super admins cannot be assigned courses.");
+      return;
+    }
+
+    try {
+      if (useBackend) {
+        await updateAdminBackend(targetAdmin.id, targetAdmin.role || "sub", targetAdmin.status || "pending", normalizedAssignedCourses);
+      } else {
+        const all = JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]");
+        const updated = all.map((x: any) => x.email === targetAdmin.email ? { ...x, assignedCourses: normalizedAssignedCourses } : x);
+        localStorage.setItem("ami_admin_accounts", JSON.stringify(updated));
+        refreshAdminAccounts();
+        if (currentAdmin?.email === targetAdmin.email) {
+          const mergedSession = { ...currentAdmin, assignedCourses: normalizedAssignedCourses };
+          localStorage.setItem("ami_admin_session", JSON.stringify(mergedSession));
+          setCurrentAdmin(mergedSession);
+        }
+        toast.success("Course assignments saved locally");
+      }
+      setAssignmentDrafts((prev) => ({ ...prev, [targetAdmin.id]: normalizedAssignedCourses }));
+    } catch {
+      // updateAdminBackend already surfaces errors
+    }
+  };
 
   if (!isLoggedIn) {
     return <Navigate to="/admin/login" replace />;
@@ -1579,6 +1634,109 @@ const exportData = async (type: string) => {
               )}
             </div>
           )}
+          {activeTab === "course-assignments" && isSuperAdmin && (
+            <div className="space-y-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="font-heading text-lg font-bold text-foreground">Course Assignments</h2>
+                  <p className="text-sm text-muted-foreground">Assign courses to sub-admins and lecturers. Their portal updates from the saved assignedCourses list.</p>
+                </div>
+                <span className="text-sm text-muted-foreground">{adminAccounts.filter((admin) => admin.role !== "super").length} editable accounts</span>
+              </div>
+              {adminAccounts.filter((admin) => admin.role !== "super").length === 0 ? (
+                <div className="bg-card rounded-xl border border-border p-10 text-center text-muted-foreground">
+                  No sub-admin accounts available for assignment.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+                    <div className="bg-card rounded-xl border border-border p-4 space-y-2">
+                      <p className="text-sm font-semibold text-foreground">Sub-admins</p>
+                      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        {adminAccounts.filter((admin) => admin.role !== "super").map((admin) => {
+                          const isActive = assignmentAdminId === admin.id;
+                          const assignedCount = normalizeAssignedCourses(admin.assignedCourses).length;
+                          return (
+                            <button
+                              key={admin.id}
+                              onClick={() => setAssignmentAdminId(admin.id)}
+                              className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${isActive ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-muted/40"}`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">{admin.username}</p>
+                                  <p className="text-xs text-muted-foreground">{admin.email}</p>
+                                </div>
+                                <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">{assignedCount}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+                      {!assignmentAdminId ? (
+                        <p className="text-sm text-muted-foreground">Select a sub-admin to edit their course list.</p>
+                      ) : (() => {
+                        const selectedAdmin = adminAccounts.find((admin) => admin.id === assignmentAdminId && admin.role !== "super");
+                        if (!selectedAdmin) return <p className="text-sm text-muted-foreground">Select a sub-admin to edit their course list.</p>;
+                        const selectedDraft = assignmentDrafts[selectedAdmin.id] || normalizeAssignedCourses(selectedAdmin.assignedCourses);
+                        return (
+                          <div className="space-y-4">
+                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <h3 className="font-heading text-base font-bold text-foreground">{selectedAdmin.username}</h3>
+                                <p className="text-sm text-muted-foreground">{selectedAdmin.email}</p>
+                              </div>
+                              <span className="text-sm text-muted-foreground">{selectedDraft.length} selected</span>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 max-h-[28rem] overflow-y-auto pr-1">
+                              {courses.map((course) => {
+                                const checked = selectedDraft.includes(course.id);
+                                return (
+                                  <label key={course.id} className="flex items-start gap-3 rounded-lg border border-border bg-background p-3 text-sm cursor-pointer hover:bg-muted/30">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={() => {
+                                        setAssignmentDrafts((prev) => {
+                                          const current = prev[selectedAdmin.id] || normalizeAssignedCourses(selectedAdmin.assignedCourses);
+                                          const next = current.includes(course.id)
+                                            ? current.filter((id) => id !== course.id)
+                                            : [...current, course.id];
+                                          return { ...prev, [selectedAdmin.id]: next };
+                                        });
+                                      }}
+                                      className="mt-1"
+                                    />
+                                    <span>
+                                      <span className="block font-medium text-foreground">{course.title}</span>
+                                      <span className="block text-xs text-muted-foreground">{course.semester} · {course.status}</span>
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button onClick={() => saveCourseAssignments(selectedAdmin.id, assignmentDrafts[selectedAdmin.id] || [])}>Save Assignments</Button>
+                              <Button variant="outline" onClick={() => setAssignmentDrafts((prev) => ({ ...prev, [selectedAdmin.id]: [] }))}>Clear All</Button>
+                              <Button variant="outline" onClick={() => setAssignmentDrafts((prev) => ({ ...prev, [selectedAdmin.id]: courses.map((course) => course.id) }))}>Assign All</Button>
+                            </div>
+                            {selectedDraft.length > 0 && (
+                              <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
+                                <p className="mb-1 font-medium text-foreground">Preview for sub-admin portal</p>
+                                <p>{getAssignedCourseTitles(selectedDraft).join(" · ")}</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {activeTab === "assessments" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
@@ -1586,7 +1744,7 @@ const exportData = async (type: string) => {
                   <h2 className="font-heading text-lg font-bold text-foreground">Exams & Assessments</h2>
                   <p className="text-sm text-muted-foreground">Admins and sub-admins can upload upcoming exams here.</p>
                 </div>
-                <Button variant="gold" onClick={() => setShowAddAssessment(true)} className="gap-2"><Plus size={16} /> Upload Exam</Button>
+                <Button variant="gold" onClick={() => setShowAddAssessment(true)} className="gap-2"><Plus size={16} /> Upload Exam Link</Button>
               </div>
               {showAddAssessment && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
@@ -1612,22 +1770,16 @@ const exportData = async (type: string) => {
                       <option>Upcoming</option>
                     </select>
                     <input value={newAssessment.duration} onChange={e => setNewAssessment({...newAssessment, duration: e.target.value})} className={inputClass} placeholder="Duration in minutes" />
+                    <input
+                      value={newAssessment.examLink}
+                      onChange={e => setNewAssessment({...newAssessment, examLink: e.target.value})}
+                      className={inputClass}
+                      placeholder="Exam link (Google Form, Quiz link, or external exam URL)"
+                    />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Enter one date or several dates separated by commas or new lines. Students will see the full exam schedule.
+                    Enter one date or several dates separated by commas or new lines. Paste the exam link students should open in their portal.
                   </p>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground block">Exam Questions</label>
-                    <textarea
-                      value={newAssessment.questionsText}
-                      onChange={e => setNewAssessment({...newAssessment, questionsText: e.target.value})}
-                      className={`${inputClass} min-h-40`}
-                      placeholder={"Use one question per line:\nWhat is the Arabic letter for A? | Alif | Ba | Ta | Tha | A\nHow many daily prayers are there? | 3 | 4 | 5 | 6 | 5"}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Format each line as: Question | Option 1 | Option 2 | Option 3 | Option 4 | Correct answer
-                    </p>
-                  </div>
                   <div className="flex gap-2">
                     <Button onClick={async () => {
                       try {
@@ -1640,6 +1792,8 @@ const exportData = async (type: string) => {
                           exam_dates: normalizedExamDates,
                           posted: newAssessment.posted || normalizedExamDates[0] || "",
                           type: newAssessment.type || 'Exam',
+                          examLink: newAssessment.examLink,
+                          exam_link: newAssessment.examLink,
                           approval_status: currentAdmin?.role === 'super' ? 'approved' : 'pending'
                         };
                         const res = await fetch(apiUrl('/api/admin/assessments'), { method: 'POST', headers, body: JSON.stringify(payload) });
@@ -1648,9 +1802,9 @@ const exportData = async (type: string) => {
                         setAssessments(prev => [data, ...prev]);
                         const localExams = JSON.parse(localStorage.getItem('ami_uploaded_exams') || '[]');
                         localStorage.setItem('ami_uploaded_exams', JSON.stringify([data, ...localExams]));
-                        setNewAssessment({ title: '', course: '', type: 'Exam', posted: '', examDates: '', status: 'Posted', weight: '', duration: '60', questionsText: '' });
+                        setNewAssessment({ title: '', course: '', type: 'Exam', posted: '', examDates: '', status: 'Posted', weight: '', duration: '60', examLink: '' });
                         setShowAddAssessment(false);
-                        toast.success('Exam uploaded successfully');
+                        toast.success('Exam link uploaded successfully');
                       } catch (e: any) { toast.error(e.message); }
                     }}>Save</Button>
                     <Button variant="outline" onClick={() => setShowAddAssessment(false)}>Cancel</Button>
@@ -1665,12 +1819,13 @@ const exportData = async (type: string) => {
                       <th className="text-left p-4 font-semibold">Course</th>
                       <th className="text-left p-4 font-semibold">Type</th>
                       <th className="text-left p-4 font-semibold">Status</th>
+                      <th className="text-left p-4 font-semibold">Exam Link</th>
                       <th className="text-left p-4 font-semibold">Approval</th>
                       <th className="text-left p-4 font-semibold"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {assessments.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No assessments yet</td></tr>}
+                    {assessments.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No assessments yet</td></tr>}
                     {assessments.map((a: any) => (
                       <tr key={a.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                         <td className="p-4 font-medium">{a.title}</td>
@@ -1682,6 +1837,7 @@ const exportData = async (type: string) => {
                             <p className="text-xs text-muted-foreground">{formatExamDateList(a.examDates || a.exam_dates || a.dates || a.posted)}</p>
                           </div>
                         </td>
+                        <td className="p-4 text-muted-foreground max-w-[220px] truncate">{a.examLink || a.exam_link || a.url || a.link || "No exam link"}</td>
                         <td className="p-4">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${a.approval_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                             {a.approval_status === 'approved' ? 'Approved' : 'Pending'}
