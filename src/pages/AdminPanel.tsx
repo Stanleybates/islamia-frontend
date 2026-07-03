@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
+import useSessionTimeout from "@/hooks/useSessionTimeout";
 import { validateEmail } from "@/lib/validation";
 import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from "@/lib/semester-settings";
 import logo from "@/assets/logo.png";
@@ -624,6 +625,18 @@ const exportData = async (type: string) => {
     toast.success("You've been logged out. See you soon!");
     setTimeout(() => setIsLoggedIn(false), 800);
   };
+
+  // Session timeout — 2 mins inactivity for admin
+  useSessionTimeout({
+    timeoutMinutes: 2,
+    isActive: isLoggedIn,
+    onTimeout: () => {
+      localStorage.removeItem("ami_admin_session");
+      sessionStorage.removeItem('ami_welcomed');
+      setIsLoggedIn(false);
+      toast.warning("You were logged out due to inactivity.");
+    },
+  });
 
   const handleAddStudent = () => {
     if (!newStudent.name || !newStudent.email) return;

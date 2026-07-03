@@ -3,6 +3,7 @@ import apiClient from "@/lib/apiClient";
 import { apiUrl } from '@/lib/apiClient';
 import { Link } from "react-router-dom";
 import { BookOpen, GraduationCap, Bell, User, LogOut, Home, Clock, Award, Eye, EyeOff, KeyRound, Phone, ClipboardList, FileText, CheckCircle2 } from "lucide-react";
+import useSessionTimeout from "@/hooks/useSessionTimeout";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import logo from "@/assets/logo.png";
@@ -27,6 +28,7 @@ const StudentPortal = () => {
   const [loadingData, setLoadingData] = useState(false);
   const [portalNotifications, setPortalNotifications] = useState<any[]>([]);
   const [studentAssessments, setStudentAssessments] = useState<any[]>([]);
+  const [gpaData, setGpaData] = useState<{ gpa: Record<string, number>; cgpa: number; totalCredits: number }>({ gpa: {}, cgpa: 0, totalCredits: 0 });
   const [semesterSettings, setSemesterSettings] = useState(() => readSemesterSettings());
   const [admissionOpen, setAdmissionOpen] = useState(true);
   const [countdownText, setCountdownText] = useState("");
@@ -51,11 +53,12 @@ const StudentPortal = () => {
     setLoadingData(true);
     try {
       const headers: any = { Authorization: 'Bearer ' + token };
-      const [gradesRes, coursesRes, notifRes, assessmentsRes] = await Promise.all([
+      const [gradesRes, coursesRes, notifRes, assessmentsRes, gpaRes] = await Promise.all([
         fetch(apiUrl('/api/student/grades'), { headers }).then(r => r.ok ? r.json() : []),
         fetch(apiUrl('/api/student/courses'), { headers }).then(r => r.ok ? r.json() : []),
         fetch(apiUrl('/api/student/notifications'), { headers }).then(r => r.ok ? r.json() : []),
         fetch(apiUrl('/api/student/assessments'), { headers }).then(r => r.ok ? r.json() : []),
+        fetch(apiUrl('/api/student/gpa'), { headers }).then(r => r.ok ? r.json() : { gpa: {}, cgpa: 0, totalCredits: 0 }),
       ]);
       if (Array.isArray(gradesRes)) {
         setStudentResults(gradesRes.map((g: any) => ({
@@ -71,6 +74,7 @@ const StudentPortal = () => {
         const localExams = readStoredExams();
         setStudentAssessments(mergeAssessments(assessmentsRes, localExams));
       }
+      if (gpaRes && typeof gpaRes.cgpa === 'number') setGpaData(gpaRes);
       if (Array.isArray(coursesRes)) {
         setStudentCourses(coursesRes.map((c: any) => ({
           id: c.id,
@@ -257,12 +261,20 @@ const StudentPortal = () => {
     toast.info("Logged out successfully");
   };
 
+  // Session timeout — 5 mins inactivity
+  useSessionTimeout({
+    timeoutMinutes: 5,
+    isActive: isLoggedIn,
+    onTimeout: () => {
+      handleLogout();
+      toast.warning("You were logged out due to inactivity.");
+    },
+  });
+
   const session = JSON.parse(localStorage.getItem("ami_student_session") || "{}");
   const inputClass = "w-full px-4 py-3 rounded-lg border border-border bg-background/80 backdrop-blur-sm text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all";
   const admissionCountdown = admissionOpen ? "Admission is open now" : `Admission opens in ${countdownText}`;
-  const transcriptGpa = studentResults.length
-    ? (studentResults.reduce((sum, result) => sum + gradeToPoints(result.grade), 0) / studentResults.length).toFixed(2)
-    : "0.00";
+  const transcriptGpa = gpaData.cgpa ? gpaData.cgpa.toFixed(2) : "0.00";
 
   const downloadTranscript = () => {
     const studentName = session.name || "Student";
@@ -896,14 +908,33 @@ const StudentPortal = () => {
               </div>
               <div className="flex flex-wrap gap-3">
                 <div className="rounded-lg border border-border bg-muted/30 px-4 py-2 text-sm">
-                  <span className="text-muted-foreground">GPA</span>{" "}
+                  <span className="text-muted-foreground">CGPA</span>{" "}
                   <span className="font-semibold text-foreground">{transcriptGpa}</span>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/30 px-4 py-2 text-sm">
+                  <span className="text-muted-foreground">Credits</span>{" "}
+                  <span className="font-semibold text-foreground">{gpaData.totalCredits}</span>
                 </div>
                 <Button variant="gold" onClick={downloadTranscript} disabled={studentResults.length === 0}>
                   Download Transcript
                 </Button>
               </div>
             </div>
+
+            {Object.keys(gpaData.gpa).length > 0 && (
+              <div className="bg-card rounded-xl border border-border p-5">
+                <h4 className="font-heading text-base font-semibold text-foreground mb-3">GPA by Semester</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {Object.entries(gpaData.gpa).map(([sem, gpa]) => (
+                    <div key={sem} className="bg-muted/30 rounded-lg p-3 text-center">
+                      <p className="text-xs text-muted-foreground">{sem}</p>
+                      <p className="text-lg font-bold text-primary">{(gpa as number).toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
 
             <div className="bg-card rounded-xl border border-border overflow-hidden">
               {studentResults.length === 0 ? (
