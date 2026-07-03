@@ -765,13 +765,14 @@ const StudentPortal = () => {
                 <div className="space-y-3">
                   {studentAssessments.filter((a) => a.type === "Exam").map((exam) => {
                     const examQuestions = parseExamQuestions(exam.questionsText || exam.questions || "");
+                    const examSchedule = formatExamDateList(exam.examDates || exam.exam_dates || exam.dates || exam.posted);
                     return (
                       <div key={exam.id || exam.title} className="rounded-xl border border-border p-5">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="min-w-0">
                             <p className="font-medium text-foreground truncate">{exam.title}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">{exam.course} · {exam.duration || "60"} mins · {exam.status}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5 inline-flex items-center gap-1"><Clock size={12} /> Posted {exam.posted}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5 inline-flex items-center gap-1"><Clock size={12} /> Exam schedule: {examSchedule}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className={`text-xs font-semibold px-3 py-1 rounded-full ${exam.status === "Posted" ? "bg-primary/10 text-primary" : "bg-secondary/10 text-secondary"}`}>
@@ -806,6 +807,7 @@ const StudentPortal = () => {
                   <div>
                     <h3 className="font-heading text-lg font-semibold text-foreground">{selectedExam.title}</h3>
                     <p className="text-sm text-muted-foreground">{selectedExam.course} · {selectedExam.duration || "60"} minutes</p>
+                    <p className="text-xs text-muted-foreground mt-1 inline-flex items-center gap-1"><Clock size={12} /> Exam schedule: {formatExamDateList(selectedExam.examDates || selectedExam.exam_dates || selectedExam.dates || selectedExam.posted)}</p>
                   </div>
                   {examScore && (
                     <div className="rounded-lg bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
@@ -1023,6 +1025,23 @@ function readStoredExams() {
   } catch {
     return [];
   }
+}
+
+function normalizeExamDates(value: unknown) {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  if (typeof value === "string") {
+    return value
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function formatExamDateList(value: unknown) {
+  const dates = normalizeExamDates(value);
+  if (dates.length === 0) return "Not scheduled";
+  return dates.map((date) => formatSemesterDate(date)).join(" · ");
 }
 
 function mergeAssessments(apiAssessments: any[], localAssessments: any[]) {

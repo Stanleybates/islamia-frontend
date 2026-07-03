@@ -19,6 +19,7 @@ import { apiUrl } from "@/lib/apiClient";
 
 interface Student { id: string; name: string; email: string; semester: string; status: string; gpa: string; }
 interface Course { id: string; title: string; semester: string; enrolled: number; status: string; }
+interface AdminAccount { id: string; username: string; email: string; phone?: string; role?: string; status?: string; createdAt?: string; assignedCourses?: string[]; }
 interface Payment { id: string; student: string; amount: string; method: string; date: string; status: string; }
 interface Grade { id: string; student: string; course: string; midterm: number; final: number; grade: string; status: "approved" | "pending"; enteredBy?: string; approvedBy?: string; enteredAt?: string; approvedAt?: string; }
 interface Application { id: string; fullName: string; email: string; phone: string; semester: string; arabicLevel: string; status: string; date: string; motivation: string; country: string; gender: string; regNumber: string; whatsapp?: string; languages?: string; }
@@ -52,13 +53,14 @@ const initialGrades: Grade[] = [
   { id: "GRD004", student: "Khadijah Bello", course: "Expression & Communication 1", midterm: 70, final: 75, grade: "B", status: "approved", enteredBy: "system", enteredAt: new Date().toISOString(), approvedBy: "system", approvedAt: new Date().toISOString() },
 ];
 
-type Tab = "overview" | "students" | "courses" | "grades" | "payments" | "admissions" | "staff" | "admins" | "settings" | "fee" | "assessments";
+type Tab = "overview" | "students" | "courses" | "assigned-courses" | "grades" | "payments" | "admissions" | "staff" | "admins" | "settings" | "fee" | "assessments";
 
 const sidebarItems: { key: Tab; label: string; icon: any; superOnly?: boolean }[] = [
   { key: "overview", label: "Overview", icon: BarChart3 },
   { key: "admissions", label: "Admissions", icon: FileText },
   { key: "students", label: "Students", icon: Users },
   { key: "courses", label: "Courses", icon: BookOpen },
+  { key: "assigned-courses", label: "Assigned Courses", icon: ClipboardList },
   { key: "grades", label: "Grades & Results", icon: Award },
   { key: "payments", label: "Payments", icon: CreditCard },
   { key: "staff", label: "Staff", icon: Users },
@@ -73,6 +75,28 @@ const defaultStaff: Staff[] = [
   { id: "STF001", name: "Mustapha Abbass Bah", course: "Reading 1", contact: "+966547763984", email: "mabah9as@gmail.com", department: "Reading & Recitation" },
   { id: "STF002", name: "Ahmed Osama", course: "—", contact: "+233 55 054 5403", email: "—", department: "Administration" },
 ];
+
+const normalizeAssignedCourses = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
+  return [];
+};
+
+const normalizeExamDates = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  if (typeof value === "string") {
+    return value
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+const getCourseTitle = (courseId: string, allCourses: Course[]) => {
+  const found = allCourses.find((course) => course.id === courseId);
+  return found ? `${found.title} (${found.semester})` : courseId;
+};
 
 function calcGrade(midterm: number, final_: number): string {
   const avg = (midterm + final_) / 2;
@@ -268,14 +292,15 @@ const AdminPanel = () => {
   });
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [newStaff, setNewStaff] = useState({ name: "", course: "", contact: "", email: "", department: "" });
-  const [adminAccounts, setAdminAccounts] = useState<any[]>([]);
-  const [editingAdmin, setEditingAdmin] = useState<any | null>(null);
+  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
+  const [editingAdmin, setEditingAdmin] = useState<AdminAccount | null>(null);
   const [editingRole, setEditingRole] = useState<string>("");
   const [editingAdminStatus, setEditingAdminStatus] = useState<string>("");
+  const [editingAdminCourses, setEditingAdminCourses] = useState<string[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [assessments, setAssessments] = useState<any[]>([]);
   const [showAddAssessment, setShowAddAssessment] = useState(false);
-  const [newAssessment, setNewAssessment] = useState({ title: "", course: "", type: "Exam", posted: "", status: "Posted", weight: "", duration: "60", questionsText: "" });
+  const [newAssessment, setNewAssessment] = useState({ title: "", course: "", type: "Exam", posted: "", examDates: "", status: "Posted", weight: "", duration: "60", questionsText: "" });
 
   const refreshAdminAccounts = () => {
     setAdminAccounts(JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]"));
@@ -303,7 +328,16 @@ const AdminPanel = () => {
       else if (Array.isArray(gradesRes)) setGrades(gradesRes);
       if (adminsRes?.data || Array.isArray(adminsRes)) {
         const arr = adminsRes?.data || adminsRes;
-        setAdminAccounts(arr.map((a) => ({ id: a.id, username: a.username, email: a.email, phone: a.phone || a.phone_number, role: a.role, status: a.status || (a.is_approved ? 'approved' : 'denied'), createdAt: a.created_at })));
+        setAdminAccounts(arr.map((a: any) => ({
+          id: String(a.id),
+          username: a.username,
+          email: a.email,
+          phone: a.phone || a.phone_number,
+          role: a.role,
+          status: a.status || (a.is_approved ? 'approved' : 'denied'),
+          createdAt: a.created_at,
+          assignedCourses: normalizeAssignedCourses(a.assignedCourses || a.assigned_courses || a.courses),
+        })));
       }
       if (paymentsRes?.data || Array.isArray(paymentsRes)) setPaymentsState(paymentsRes?.data || paymentsRes);
       if (studentsRes?.data) setStudents(studentsRes.data.map((s) => ({ id: String(s.id), name: s.username || s.email, email: s.email, semester: 'Sem 1', status: 'Active', gpa: '0.0' })));
@@ -419,6 +453,23 @@ if (studentsRes?.data) {
       try { setGrades(JSON.parse(storedGrades)); } catch {}
     }
   }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!currentAdmin?.email || adminAccounts.length === 0) return;
+    const matched = adminAccounts.find((account) => account.email === currentAdmin.email);
+    if (!matched) return;
+    const merged = { ...currentAdmin, ...matched };
+    if (JSON.stringify(merged) !== JSON.stringify(currentAdmin)) {
+      setCurrentAdmin(merged);
+      localStorage.setItem("ami_admin_session", JSON.stringify(merged));
+    }
+  }, [adminAccounts, currentAdmin]);
+
+  useEffect(() => {
+    if (currentAdmin?.role !== "super" && activeTab === "overview") {
+      setActiveTab("assigned-courses");
+    }
+  }, [currentAdmin, activeTab]);
 
 
   const isSuperAdmin = currentAdmin?.role === "super";
@@ -602,17 +653,22 @@ const exportData = async (type: string) => {
     } catch (e) { toast.error('Could not deny admin'); }
   };
 
-  const updateAdminBackend = async (userId: any, role?: string, admin_status?: string) => {
+  const updateAdminBackend = async (userId: any, role?: string, admin_status?: string, assignedCourses?: string[]) => {
     try {
       const headers = getAuthHeader();
       const res = await fetch(apiUrl('/api/admin/admins/' + userId), {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ role, admin_status }),
+        body: JSON.stringify({ role, admin_status, assignedCourses, assigned_courses: assignedCourses }),
       });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
-      setAdminAccounts((a) => a.map(x => x.id === updated.id ? { ...x, status: updated.status, role: updated.role } : x));
+      setAdminAccounts((a) => a.map(x => x.id === updated.id ? { ...x, status: updated.status, role: updated.role, assignedCourses: normalizeAssignedCourses(updated.assignedCourses || updated.assigned_courses || updated.courses || assignedCourses) } : x));
+      if (currentAdmin?.id === updated.id) {
+        const mergedSession = { ...currentAdmin, status: updated.status, role: updated.role, assignedCourses: normalizeAssignedCourses(updated.assignedCourses || updated.assigned_courses || updated.courses || assignedCourses) };
+        setCurrentAdmin(mergedSession);
+        localStorage.setItem("ami_admin_session", JSON.stringify(mergedSession));
+      }
       toast.success('Admin updated');
       return updated;
     } catch (e) { toast.error('Could not update admin'); throw e; }
@@ -811,6 +867,21 @@ const exportData = async (type: string) => {
   );
 
   const pendingApps = applications.filter((a) => a.status === "Pending");
+  const currentAssignedCourseIds = normalizeAssignedCourses(currentAdmin?.assignedCourses);
+  const currentAssignedCourses = currentAssignedCourseIds.map((courseId) => {
+    const found = courses.find((course) => course.id === courseId);
+    return {
+      id: courseId,
+      title: found?.title || courseId,
+      semester: found?.semester || "—",
+      status: found?.status || "Assigned",
+    };
+  });
+  const formatExamDateList = (value: unknown) => {
+    const dates = normalizeExamDates(value);
+    if (dates.length === 0) return "Not scheduled";
+    return dates.map((date) => formatSemesterDate(date)).join(" · ");
+  };
   const inputClass = "w-full px-4 py-2.5 rounded-lg border border-border bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none";
   const glassInputClass = "w-full px-4 py-2.5 rounded-lg border border-white/20 bg-white/10 text-white text-sm placeholder:text-white/50 focus:ring-2 focus:ring-white/30 focus:border-white/40 outline-none backdrop-blur-sm";
 
@@ -874,7 +945,7 @@ const exportData = async (type: string) => {
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 mr-3 text-foreground hover:text-primary">
             <BarChart3 size={20} />
           </button>
-          <h1 className="font-heading text-lg font-bold text-foreground capitalize">{activeTab}</h1>
+          <h1 className="font-heading text-lg font-bold text-foreground capitalize">{activeTab.split("-").join(" ")}</h1>
         </header>
         <main className="flex-1 p-4 sm:p-6 overflow-auto">
           {dataLoading && (
@@ -1191,6 +1262,48 @@ const exportData = async (type: string) => {
               </div>
             </div>
           )}
+          {activeTab === "assigned-courses" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-heading text-lg font-bold text-foreground">Assigned Courses</h2>
+                  <p className="text-sm text-muted-foreground">Courses assigned to your account by Super Admin.</p>
+                </div>
+                <span className="text-sm text-muted-foreground">{currentAssignedCourses.length} assigned</span>
+              </div>
+              <div className="bg-card rounded-xl border border-border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/50">
+                      <th className="text-left p-4 font-semibold text-foreground">Course</th>
+                      <th className="text-left p-4 font-semibold text-foreground">Semester</th>
+                      <th className="text-left p-4 font-semibold text-foreground">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentAssignedCourses.length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="p-8 text-center text-muted-foreground">
+                          No courses have been assigned to your account yet.
+                        </td>
+                      </tr>
+                    )}
+                    {currentAssignedCourses.map((course) => (
+                      <tr key={course.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                        <td className="p-4 font-medium text-foreground">{course.title}</td>
+                        <td className="p-4 text-muted-foreground">{course.semester}</td>
+                        <td className="p-4">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                            {course.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
           {activeTab === "grades" && (
             <div className="space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1469,6 +1582,7 @@ const exportData = async (type: string) => {
                             setEditingAdmin(a);
                             setEditingRole(a.role || 'sub_admin');
                             setEditingAdminStatus(a.status || 'pending');
+                            setEditingAdminCourses(normalizeAssignedCourses(a.assignedCourses));
                           }}><Edit size={14} /> Edit</Button>
                         </div>
                       </div>
@@ -1500,12 +1614,21 @@ const exportData = async (type: string) => {
                     </select>
                     <input value={newAssessment.weight} onChange={e => setNewAssessment({...newAssessment, weight: e.target.value})} className={inputClass} placeholder="Weight (e.g. 10%)" />
                     <input type="date" value={newAssessment.posted} onChange={e => setNewAssessment({...newAssessment, posted: e.target.value})} className={inputClass} />
+                    <input
+                      value={newAssessment.examDates}
+                      onChange={e => setNewAssessment({...newAssessment, examDates: e.target.value})}
+                      className={inputClass}
+                      placeholder="Exam dates: 2026-07-23 or 2026-07-23, 2026-08-04"
+                    />
                     <select value={newAssessment.status} onChange={e => setNewAssessment({...newAssessment, status: e.target.value})} className={inputClass}>
                       <option>Posted</option>
                       <option>Upcoming</option>
                     </select>
                     <input value={newAssessment.duration} onChange={e => setNewAssessment({...newAssessment, duration: e.target.value})} className={inputClass} placeholder="Duration in minutes" />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter one date or several dates separated by commas or new lines. Students will see the full exam schedule.
+                  </p>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground block">Exam Questions</label>
                     <textarea
@@ -1523,14 +1646,22 @@ const exportData = async (type: string) => {
                       try {
                         const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                         const headers: any = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token };
-                        const payload = { ...newAssessment, type: newAssessment.type || 'Exam', approval_status: currentAdmin?.role === 'super' ? 'approved' : 'pending' };
+                        const normalizedExamDates = normalizeExamDates(newAssessment.examDates || newAssessment.posted);
+                        const payload = {
+                          ...newAssessment,
+                          examDates: normalizedExamDates,
+                          exam_dates: normalizedExamDates,
+                          posted: newAssessment.posted || normalizedExamDates[0] || "",
+                          type: newAssessment.type || 'Exam',
+                          approval_status: currentAdmin?.role === 'super' ? 'approved' : 'pending'
+                        };
                         const res = await fetch(apiUrl('/api/admin/assessments'), { method: 'POST', headers, body: JSON.stringify(payload) });
                         if (!res.ok) throw new Error('Failed to add');
                         const data = await res.json();
                         setAssessments(prev => [data, ...prev]);
                         const localExams = JSON.parse(localStorage.getItem('ami_uploaded_exams') || '[]');
                         localStorage.setItem('ami_uploaded_exams', JSON.stringify([data, ...localExams]));
-                        setNewAssessment({ title: '', course: '', type: 'Exam', posted: '', status: 'Posted', weight: '', duration: '60', questionsText: '' });
+                        setNewAssessment({ title: '', course: '', type: 'Exam', posted: '', examDates: '', status: 'Posted', weight: '', duration: '60', questionsText: '' });
                         setShowAddAssessment(false);
                         toast.success('Exam uploaded successfully');
                       } catch (e: any) { toast.error(e.message); }
@@ -1558,7 +1689,12 @@ const exportData = async (type: string) => {
                         <td className="p-4 font-medium">{a.title}</td>
                         <td className="p-4 text-muted-foreground">{a.course}</td>
                         <td className="p-4 text-muted-foreground">{a.type}</td>
-                        <td className="p-4"><span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{a.status}</span></td>
+                        <td className="p-4">
+                          <div className="space-y-1">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary inline-flex">{a.status}</span>
+                            <p className="text-xs text-muted-foreground">{formatExamDateList(a.examDates || a.exam_dates || a.dates || a.posted)}</p>
+                          </div>
+                        </td>
                         <td className="p-4">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${a.approval_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                             {a.approval_status === 'approved' ? 'Approved' : 'Pending'}
@@ -1607,12 +1743,25 @@ const exportData = async (type: string) => {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-foreground block mb-1.5">Contact Number</label>
-                    <input className={inputClass} defaultValue="+233 55 054 5403" readOnly />
+                    <input
+                      className={inputClass}
+                      value={settings.contactNumber}
+                      onChange={(e) => setSettings({ ...settings, contactNumber: e.target.value })}
+                    />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-foreground block mb-1.5">Email</label>
-                    <input className={inputClass} defaultValue="info@allahumustaan.edu" readOnly />
+                    <input
+                      className={inputClass}
+                      value={settings.email}
+                      onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                    />
                   </div>
+                </div>
+                <div className="pt-2">
+                  <Button onClick={saveSettings} disabled={settingsSaving}>
+                    {settingsSaving ? 'Saving...' : 'Save Settings'}
+                  </Button>
                 </div>
               </div>
               <div className="bg-card rounded-xl border border-border p-6">
@@ -1659,24 +1808,65 @@ const exportData = async (type: string) => {
                           <option value="denied">Denied</option>
                         </select>
                       </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground block mb-1">Assigned Courses</label>
+                        <div className={`max-h-52 overflow-y-auto rounded-lg border border-border p-3 space-y-2 ${editingRole === 'super' ? 'bg-muted/30 opacity-70' : 'bg-muted/20'}`}>
+                          {courses.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No courses available yet.</p>
+                          ) : (
+                            courses.map((course) => {
+                              const checked = editingAdminCourses.includes(course.id);
+                              return (
+                                <label key={course.id} className="flex items-start gap-2 text-sm text-foreground cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    disabled={editingRole === 'super'}
+                                    onChange={() => {
+                                      setEditingAdminCourses((prev) =>
+                                        prev.includes(course.id)
+                                          ? prev.filter((id) => id !== course.id)
+                                          : [...prev, course.id]
+                                      );
+                                    }}
+                                    className="mt-1"
+                                  />
+                                  <span>
+                                    {course.title}
+                                    <span className="block text-xs text-muted-foreground">{course.semester} · {course.status}</span>
+                                  </span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">Sub-admins can remain unassigned. Leave this empty if they should not manage any courses yet.</p>
+                      </div>
                       <div className="flex gap-2 mt-2">
                         <Button onClick={async () => {
                           try {
+                            const normalizedAssignedCourses = editingRole === 'super' ? [] : editingAdminCourses;
                             if (useBackend) {
-                              await updateAdminBackend(editingAdmin.id, editingRole, editingAdminStatus);
+                              await updateAdminBackend(editingAdmin.id, editingRole, editingAdminStatus, normalizedAssignedCourses);
                             } else {
                               const all = JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]");
-                              const updated = all.map((x: any) => x.email === editingAdmin.email ? { ...x, role: editingRole === 'super' ? 'super' : 'sub', status: editingAdminStatus } : x);
+                              const updated = all.map((x: any) => x.email === editingAdmin.email ? { ...x, role: editingRole === 'super' ? 'super' : 'sub', status: editingAdminStatus, assignedCourses: normalizedAssignedCourses } : x);
                               localStorage.setItem("ami_admin_accounts", JSON.stringify(updated));
                               refreshAdminAccounts();
+                              if (currentAdmin?.email === editingAdmin.email) {
+                                const mergedSession = { ...currentAdmin, role: editingRole === 'super' ? 'super' : 'sub', status: editingAdminStatus, assignedCourses: normalizedAssignedCourses };
+                                localStorage.setItem("ami_admin_session", JSON.stringify(mergedSession));
+                                setCurrentAdmin(mergedSession);
+                              }
                               toast.success('Admin updated locally');
                             }
                             setEditingAdmin(null);
+                            setEditingAdminCourses([]);
                           } catch (e) {
                             // error handled in updateAdminBackend
                           }
                         }}>Save</Button>
-                        <Button variant="outline" onClick={() => setEditingAdmin(null)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => { setEditingAdmin(null); setEditingAdminCourses([]); }}>Cancel</Button>
                       </div>
                     </div>
                   </div>

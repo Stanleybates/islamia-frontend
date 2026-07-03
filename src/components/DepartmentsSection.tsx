@@ -69,7 +69,7 @@ const DepartmentsSection = () => {
             <div className="flex flex-col sm:flex-row gap-3 text-xs">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Mail size={14} className="text-primary" />
-                <span>info@allahumustaan.edu</span>
+                <span>allahulmustaaninstitute@gmail.com</span>
               </div>
               <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
                 <MessageCircle size={14} className="text-green-600" />
