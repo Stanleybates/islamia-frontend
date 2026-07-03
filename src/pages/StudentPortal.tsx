@@ -16,8 +16,9 @@ import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from 
 
 const StudentPortal = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "courses" | "assessments" | "results" | "notifications">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "courses" | "assessments" | "results" | "notifications" | "security">("dashboard");
   const [showPassword, setShowPassword] = useState(false);
+  const [showSecurityPassword, setShowSecurityPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
 
   // Auth form
@@ -35,6 +36,8 @@ const StudentPortal = () => {
   const [selectedExam, setSelectedExam] = useState<any | null>(null);
   const [examAnswers, setExamAnswers] = useState<Record<string, string>>({});
   const [examScore, setExamScore] = useState<{ score: number; total: number } | null>(null);
+  const [securityForm, setSecurityForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [securitySaving, setSecuritySaving] = useState(false);
 
   // Forgot password state
   const [forgotMode, setForgotMode] = useState(false);
@@ -70,11 +73,20 @@ const StudentPortal = () => {
         })));
       }
       if (Array.isArray(notifRes)) setPortalNotifications(notifRes);
-      if (Array.isArray(assessmentsRes)) {
-        const localExams = readStoredExams();
-        setStudentAssessments(mergeAssessments(assessmentsRes, localExams));
-      }
-      if (gpaRes && typeof gpaRes.cgpa === 'number') setGpaData(gpaRes);
+const apiAssessments = Array.isArray(assessmentsRes)
+  ? assessmentsRes
+  : Array.isArray(assessmentsRes?.data)
+    ? assessmentsRes.data
+    : [];
+
+const localExams = readStoredExams();
+setStudentAssessments(
+  mergeAssessments(apiAssessments, localExams).map(normalizeAssessment)
+);
+
+if (gpaRes && typeof gpaRes.cgpa === "number") {
+  setGpaData(gpaRes);
+}
       if (Array.isArray(coursesRes)) {
         setStudentCourses(coursesRes.map((c: any) => ({
           id: c.id,
@@ -261,6 +273,7 @@ const StudentPortal = () => {
     toast.info("Logged out successfully");
   };
 
+
   // Session timeout — 5 mins inactivity
   useSessionTimeout({
     timeoutMinutes: 5,
@@ -270,6 +283,60 @@ const StudentPortal = () => {
       toast.warning("You were logged out due to inactivity.");
     },
   });
+
+  const handleChangeStudentPassword = async () => {
+    const studentSession = JSON.parse(localStorage.getItem("ami_student_session") || "{}");
+    const studentIndex = studentSession.indexNumber || studentSession.index_number || studentSession.regNumber;
+
+    if (!studentIndex) {
+      toast.error("Student session not found. Please log in again.");
+      return;
+    }
+
+    if (!securityForm.currentPassword || !securityForm.newPassword || !securityForm.confirmPassword) {
+      toast.error("Please fill in all password fields.");
+      return;
+    }
+
+    if (securityForm.newPassword !== securityForm.confirmPassword) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+
+    setSecuritySaving(true);
+    try {
+      const accounts = JSON.parse(localStorage.getItem("ami_student_accounts") || "[]");
+      const accountIndex = accounts.findIndex((account: any) => String(account.indexNumber) === String(studentIndex));
+
+      if (accountIndex === -1) {
+        toast.error("Your account could not be found.");
+        return;
+      }
+
+      if (accounts[accountIndex].password !== securityForm.currentPassword) {
+        toast.error("Current password is incorrect.");
+        return;
+      }
+
+      accounts[accountIndex].password = securityForm.newPassword;
+      localStorage.setItem("ami_student_accounts", JSON.stringify(accounts));
+
+      const updatedSession = {
+        ...studentSession,
+        indexNumber: accounts[accountIndex].indexNumber,
+        index_number: accounts[accountIndex].indexNumber,
+        name: accounts[accountIndex].name || studentSession.name,
+        regNumber: accounts[accountIndex].regNumber || studentSession.regNumber,
+      };
+      localStorage.setItem("ami_student_session", JSON.stringify(updatedSession));
+
+      setSecurityForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      toast.success("Password updated successfully.");
+    } finally {
+      setSecuritySaving(false);
+    }
+  };
+
 
   const session = JSON.parse(localStorage.getItem("ami_student_session") || "{}");
   const inputClass = "w-full px-4 py-3 rounded-lg border border-border bg-background/80 backdrop-blur-sm text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all";
@@ -599,6 +666,7 @@ const StudentPortal = () => {
             { key: "assessments", label: "Assessments", icon: ClipboardList },
             { key: "results", label: "Results", icon: Award },
             { key: "notifications", label: "Notifications", icon: Bell },
+            { key: "security", label: "Change Password", icon: KeyRound },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -748,7 +816,7 @@ const StudentPortal = () => {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="font-heading text-lg font-semibold text-foreground">Available Exams</h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">Open an exam below to answer the questions and submit your score.</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">Open an exam link below to start the exam. Older question-based exams are still supported.</p>
                 </div>
                 {selectedExam && (
                   <Button variant="outline" onClick={() => { setSelectedExam(null); setExamAnswers({}); setExamScore(null); }}>
@@ -765,6 +833,7 @@ const StudentPortal = () => {
                 <div className="space-y-3">
                   {studentAssessments.filter((a) => a.type === "Exam").map((exam) => {
                     const examQuestions = parseExamQuestions(exam.questionsText || exam.questions || "");
+                    const examLink = exam.examLink || exam.exam_link || exam.url || exam.link || "";
                     const examSchedule = formatExamDateList(exam.examDates || exam.exam_dates || exam.dates || exam.posted);
                     return (
                       <div key={exam.id || exam.title} className="rounded-xl border border-border p-5">
@@ -772,23 +841,35 @@ const StudentPortal = () => {
                           <div className="min-w-0">
                             <p className="font-medium text-foreground truncate">{exam.title}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">{exam.course} · {exam.duration || "60"} mins · {exam.status}</p>
-                              <p className="text-xs text-muted-foreground mt-0.5 inline-flex items-center gap-1"><Clock size={12} /> Exam schedule: {examSchedule}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 inline-flex items-center gap-1"><Clock size={12} /> Exam schedule: {examSchedule}</p>
+                            {examLink && <p className="text-xs text-muted-foreground mt-0.5 truncate">Link: {examLink}</p>}
                           </div>
                           <div className="flex items-center gap-2">
                             <span className={`text-xs font-semibold px-3 py-1 rounded-full ${exam.status === "Posted" ? "bg-primary/10 text-primary" : "bg-secondary/10 text-secondary"}`}>
                               {exam.status}
                             </span>
-                            <Button
-                              variant="gold"
-                              onClick={() => {
-                                setSelectedExam(exam);
-                                setExamAnswers({});
-                                setExamScore(null);
-                              }}
-                              disabled={exam.status !== "Posted"}
-                            >
-                              Take Exam
-                            </Button>
+                            {examLink ? (
+                              <a
+                                href={examLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${exam.status === "Posted" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "pointer-events-none bg-muted text-muted-foreground"}`}
+                              >
+                                Start Exam
+                              </a>
+                            ) : (
+                              <Button
+                                variant="gold"
+                                onClick={() => {
+                                  setSelectedExam(exam);
+                                  setExamAnswers({});
+                                  setExamScore(null);
+                                }}
+                                disabled={exam.status !== "Posted"}
+                              >
+                                Take Exam
+                              </Button>
+                            )}
                           </div>
                         </div>
                         {examQuestions.length > 0 && (
@@ -816,7 +897,22 @@ const StudentPortal = () => {
                   )}
                 </div>
 
-                {parseExamQuestions(selectedExam.questionsText || selectedExam.questions || "").length === 0 ? (
+                {(selectedExam.examLink || selectedExam.exam_link || selectedExam.url || selectedExam.link) && (
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+                    <p className="text-sm font-medium text-foreground">This exam uses an external link.</p>
+                    <p className="text-xs text-muted-foreground break-all">{selectedExam.examLink || selectedExam.exam_link || selectedExam.url || selectedExam.link}</p>
+                    <a
+                      href={selectedExam.examLink || selectedExam.exam_link || selectedExam.url || selectedExam.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                    >
+                      Start Exam
+                    </a>
+                  </div>
+                )}
+
+                {!selectedExam.examLink && !selectedExam.exam_link && !selectedExam.url && !selectedExam.link && parseExamQuestions(selectedExam.questionsText || selectedExam.questions || "").length === 0 ? (
                   <div className="rounded-xl border border-dashed border-border p-6 text-center text-muted-foreground">
                     This exam does not have any questions yet.
                   </div>
@@ -986,6 +1082,71 @@ const StudentPortal = () => {
             ))}
           </div>
         )}
+
+        {activeTab === "security" && (
+          <div className="space-y-4 max-w-2xl">
+            <div className="bg-card rounded-xl border border-border p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                  <KeyRound size={22} />
+                </div>
+                <div>
+                  <h3 className="font-heading text-lg font-semibold text-foreground">Change Password</h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">Update your student password from inside the portal.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card rounded-xl border border-border p-5 space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1.5">Current Password</label>
+                <div className="relative">
+                  <input
+                    type={showSecurityPassword ? "text" : "password"}
+                    value={securityForm.currentPassword}
+                    onChange={(e) => setSecurityForm({ ...securityForm, currentPassword: e.target.value })}
+                    className={inputClass}
+                    placeholder="Enter current password"
+                  />
+                  <button type="button" onClick={() => setShowSecurityPassword(!showSecurityPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    {showSecurityPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1.5">New Password</label>
+                <input
+                  type="password"
+                  value={securityForm.newPassword}
+                  onChange={(e) => setSecurityForm({ ...securityForm, newPassword: e.target.value })}
+                  className={inputClass}
+                  placeholder="Enter new password"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1.5">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={securityForm.confirmPassword}
+                  onChange={(e) => setSecurityForm({ ...securityForm, confirmPassword: e.target.value })}
+                  className={inputClass}
+                  placeholder="Confirm new password"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <Button variant="gold" onClick={handleChangeStudentPassword} disabled={securitySaving}>
+                  {securitySaving ? "Updating..." : "Update Password"}
+                </Button>
+                <Button variant="outline" onClick={() => setSecurityForm({ currentPassword: "", newPassword: "", confirmPassword: "" })}>
+                  Clear
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1053,6 +1214,15 @@ function mergeAssessments(apiAssessments: any[], localAssessments: any[]) {
   });
 
   return Array.from(merged.values());
+}
+
+function normalizeAssessment(item: any) {
+  return {
+    ...item,
+    examLink: item.examLink || item.exam_link || item.url || item.link || "",
+    exam_link: item.exam_link || item.examLink || item.url || item.link || "",
+    questionsText: item.questionsText || item.questions || "",
+  };
 }
 
 function parseExamQuestions(raw: string) {
