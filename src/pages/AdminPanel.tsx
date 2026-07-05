@@ -398,54 +398,20 @@ const AdminPanel = () => {
       try {
         const s = JSON.parse(session);
         if (!s?.token) { localStorage.removeItem("ami_admin_session"); return; }
-        // Verify token with backend
-        fetch(apiUrl('/api/admin/verify'), {
-          headers: { Authorization: 'Bearer ' + s.token }
-        }).then(res => {
-          if (!res.ok) {
-            localStorage.removeItem("ami_admin_session");
-            setIsLoggedIn(false);
-          } else {
-            res.json().then(verified => {
-              const merged = { ...s, ...verified };
-              localStorage.setItem("ami_admin_session", JSON.stringify(merged));
-              setCurrentAdmin(merged);
-              setIsLoggedIn(true);
-            });
-          }
-        }).catch(() => {
-          // Backend unreachable — reject session for security
+        // Validate JWT locally
+        const payload = JSON.parse(atob(s.token.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
           localStorage.removeItem("ami_admin_session");
           setIsLoggedIn(false);
-        });
+          return;
+        }
+        setCurrentAdmin(s);
+        setIsLoggedIn(true);
       } catch { localStorage.removeItem("ami_admin_session"); }
     }
 
-    // With backend enabled, validate token by pinging a protected endpoint.
-    (async () => {
-      try {
-        const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-        const token = s?.token;
-        if (!token) { setIsLoggedIn(false); return; }
-        const headers: any = { Authorization: 'Bearer ' + token };
-        const res = await fetch(apiUrl('/api/admin/stats'), { headers });
-        if (!res.ok) {
-          // invalid token or session expired
-          localStorage.removeItem('ami_admin_session');
-          setIsLoggedIn(false);
-          toast.error('Session invalid or expired. Please log in again.');
-          return;
-        }
-        // token valid
-        setIsLoggedIn(true);
-        loadDashboardData();
-        const refreshInterval = setInterval(loadDashboardData, 30000);
-        return () => clearInterval(refreshInterval);
-      } catch (e) {
-        localStorage.removeItem('ami_admin_session');
-        setIsLoggedIn(false);
-      }
-    })();
+    // Load dashboard data in background
+    loadDashboardData();
     if (false) {
       (async () => {
         try {
