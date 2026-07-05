@@ -270,7 +270,7 @@ const ChangePasswordForm = () => {
 
 const AdminPanel = () => {
   const useBackend = import.meta.env.VITE_USE_BACKEND === "true";
-  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem("ami_admin_session"));
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Always verify with backend first
   const [showPassword, setShowPassword] = useState(false);
   const [forgotPhone, setForgotPhone] = useState("");
   const [isLocked, setIsLocked] = useState(false);
@@ -391,7 +391,30 @@ const AdminPanel = () => {
     refreshAdminAccounts();
     const session = localStorage.getItem("ami_admin_session");
     if (session) {
-      try { const s = JSON.parse(session); setCurrentAdmin(s); setIsLoggedIn(true); } catch {}
+      try {
+        const s = JSON.parse(session);
+        if (!s?.token) { localStorage.removeItem("ami_admin_session"); return; }
+        // Verify token with backend
+        fetch(apiUrl('/api/admin/verify'), {
+          headers: { Authorization: 'Bearer ' + s.token }
+        }).then(res => {
+          if (!res.ok) {
+            localStorage.removeItem("ami_admin_session");
+            setIsLoggedIn(false);
+          } else {
+            res.json().then(verified => {
+              const merged = { ...s, ...verified };
+              localStorage.setItem("ami_admin_session", JSON.stringify(merged));
+              setCurrentAdmin(merged);
+              setIsLoggedIn(true);
+            });
+          }
+        }).catch(() => {
+          // Backend unreachable — reject session for security
+          localStorage.removeItem("ami_admin_session");
+          setIsLoggedIn(false);
+        });
+      } catch { localStorage.removeItem("ami_admin_session"); }
     }
 
     if (useBackend) {
