@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, X, GraduationCap, ShieldCheck } from "lucide-react";
+import { Menu, X, GraduationCap } from "lucide-react";
 import { Link } from "react-router-dom";
 import logo from "@/assets/logo.png";
 import AdmissionFormDialog from "./AdmissionFormDialog";
@@ -41,9 +41,6 @@ const Navbar = () => {
               <Link to="/student/login" className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-primary transition-colors">
                 <GraduationCap size={16} />Student Portal
               </Link>
-              <Link to="/admin/login" className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-primary transition-colors">
-                <ShieldCheck size={16} />Login
-              </Link>
               <ThemeToggle />
               <button
                 onClick={() => setShowAdmission(true)}
@@ -71,9 +68,6 @@ const Navbar = () => {
                 ))}
                 <Link to="/student/login" onClick={() => setIsOpen(false)} className="px-4 py-3 text-sm font-medium text-foreground/80 hover:text-primary hover:bg-muted rounded-lg transition-colors flex items-center gap-2">
                   <GraduationCap size={16} />Student Portal
-                </Link>
-                <Link to="/admin/login" onClick={() => setIsOpen(false)} className="px-4 py-3 text-sm font-medium text-foreground/80 hover:text-primary hover:bg-muted rounded-lg transition-colors flex items-center gap-2">
-                  <ShieldCheck size={16} />Login
                 </Link>
                 <button
                   onClick={() => { setIsOpen(false); setShowAdmission(true); }}

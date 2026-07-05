@@ -41,35 +41,51 @@ const AdmissionFormDialog = ({ open, onClose }: AdmissionFormDialogProps) => {
 
   useEffect(() => {
     if (!open) return;
-    const settings = readSemesterSettings();
-    const startValue = settings.admissionStart;
-    setAdmissionStart(startValue);
+    // Fetch from backend first, fallback to localStorage
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    fetch(apiUrl + '/api/admin/settings')
+      .then(r => r.ok ? r.json() : {})
+      .then(d => {
+        const startValue = d.admissionStart || d.admission_start || readSemesterSettings().admissionStart || '';
+        const endValue = d.admissionEnd || d.admission_end || '';
+        setAdmissionStart(startValue);
 
-    const updateCountdown = () => {
-      if (!startValue) {
+        const updateCountdown = () => {
+          const now = Date.now();
+          // Check if admission is closed (past end date)
+          if (endValue && now > new Date(endValue).getTime()) {
+            setAdmissionOpen(false);
+            setCountdownText('Admission has closed');
+            return;
+          }
+          if (!startValue) {
+            setAdmissionOpen(true);
+            setCountdownText('');
+            return;
+          }
+          const diff = new Date(startValue).getTime() - now;
+          if (diff <= 0) {
+            setAdmissionOpen(true);
+            setCountdownText('');
+            return;
+          }
+          setAdmissionOpen(false);
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+          const minutes = Math.floor((diff / (1000 * 60)) % 60);
+          const seconds = Math.floor((diff / 1000) % 60);
+          setCountdownText(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+        };
+        updateCountdown();
+        const timer = window.setInterval(updateCountdown, 1000);
+        return () => window.clearInterval(timer);
+      })
+      .catch(() => {
+        const settings = readSemesterSettings();
+        setAdmissionStart(settings.admissionStart || '');
+
         setAdmissionOpen(true);
-        setCountdownText("");
-        return;
-      }
-
-      const diff = new Date(startValue).getTime() - Date.now();
-      if (diff <= 0) {
-        setAdmissionOpen(true);
-        setCountdownText("");
-        return;
-      }
-
-      setAdmissionOpen(false);
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const minutes = Math.floor((diff / (1000 * 60)) % 60);
-      const seconds = Math.floor((diff / 1000) % 60);
-      setCountdownText(`${days}d ${hours}h ${minutes}m ${seconds}s`);
-    };
-
-    updateCountdown();
-    const timer = window.setInterval(updateCountdown, 1000);
-    return () => window.clearInterval(timer);
+      });
   }, [open]);
 
   if (!open) return null;

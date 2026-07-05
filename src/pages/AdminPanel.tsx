@@ -16,6 +16,7 @@ import logo from "@/assets/logo.png";
 import adminBg from "@/assets/admin-bg.webp";
 import { supabase } from "@/integrations/supabase/client";
 import { apiUrl } from "@/lib/apiClient";
+import { jsPDF } from "jspdf";
 
 interface Student { id: string; name: string; email: string; semester: string; status: string; gpa: string; }
 interface Course { id: string; title: string; semester: string; enrolled: number; status: string; }
@@ -53,22 +54,21 @@ const initialGrades: Grade[] = [
   { id: "GRD004", student: "Khadijah Bello", course: "Expression & Communication 1", midterm: 70, final: 75, grade: "B", status: "approved", enteredBy: "system", enteredAt: new Date().toISOString(), approvedBy: "system", approvedAt: new Date().toISOString() },
 ];
 
-type Tab = "overview" | "students" | "courses" | "assigned-courses" | "grades" | "payments" | "admissions" | "staff" | "admins" | "course-assignments" | "settings" | "fee" | "assessments";
+type Tab = "overview" | "students" | "courses" | "assigned-courses" | "grades" | "payments" | "admissions" | "staff" | "admins" | "course-assignments" | "settings" | "fee" | "assessments" | "exam-results" | "schedule";
 
-const sidebarItems: { key: Tab; label: string; icon: any; superOnly?: boolean }[] = [
+const sidebarItems: { key: Tab; label: string; icon: any; superOnly?: boolean; subOnly?: boolean; requiresCourse?: boolean }[] = [
   { key: "overview", label: "Overview", icon: BarChart3 },
-  { key: "admissions", label: "Admissions", icon: FileText },
-  { key: "students", label: "Students", icon: Users },
-  { key: "courses", label: "Courses", icon: BookOpen },
-  { key: "assigned-courses", label: "Assigned Courses", icon: ClipboardList },
-  { key: "grades", label: "Grades & Results", icon: Award },
-  { key: "payments", label: "Payments", icon: CreditCard },
-  { key: "staff", label: "Staff", icon: Users },
+  { key: "admissions", label: "Admissions", icon: FileText, superOnly: true },
+  { key: "students", label: "Students", icon: Users, requiresCourse: true },
+  { key: "courses", label: "Courses", icon: BookOpen, superOnly: true },
+  { key: "assigned-courses", label: "My Courses", icon: BookOpen, subOnly: true, requiresCourse: true },
+  { key: "grades", label: "Grades & Results", icon: Award, requiresCourse: true },
+  { key: "payments", label: "Payments", icon: CreditCard, superOnly: true },
+  { key: "staff", label: "Staff", icon: Users, superOnly: true },
   { key: "admins", label: "Admin Approvals", icon: Shield, superOnly: true },
   { key: "course-assignments", label: "Course Assignments", icon: ClipboardList, superOnly: true },
-  { key: "assessments", label: "Assessments", icon: ClipboardList },
+  { key: "assessments", label: "Assessments", icon: ClipboardList, requiresCourse: true },
   { key: "settings", label: "Settings", icon: Settings },
-  { key: "fee", label: "Fee & Semester", icon: CreditCard, superOnly: true },
 ];
 
 interface Staff { id: string; name: string; course: string; contact: string; email: string; department: string; }
@@ -125,6 +125,8 @@ const FeeSettingsTab = () => {
   const [semester, setSemester] = React.useState('');
   const [fee, setFee] = React.useState('');
   const [admissionStart, setAdmissionStart] = React.useState('');
+  const [examWindowStart, setExamWindowStart] = React.useState('');
+  const [examWindowEnd, setExamWindowEnd] = React.useState('');
   const [admissionEnd, setAdmissionEnd] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [notifying, setNotifying] = React.useState(false);
@@ -147,6 +149,8 @@ const FeeSettingsTab = () => {
         if (d.semester) setSemester(d.semester);
         if (d.fee) setFee(String(d.fee));
         if (d.admissionStart || d.admission_start || d.semesterStart || d.semester_start) setAdmissionStart(d.admissionStart || d.admission_start || d.semesterStart || d.semester_start);
+        if (d.examWindowStart) setExamWindowStart(d.examWindowStart);
+        if (d.examWindowEnd) setExamWindowEnd(d.examWindowEnd);
         if (d.admissionEnd || d.admission_end || d.semesterEnd || d.semester_end) setAdmissionEnd(d.admissionEnd || d.admission_end || d.semesterEnd || d.semester_end);
       })
       .catch(() => {});
@@ -163,7 +167,7 @@ const FeeSettingsTab = () => {
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ semester, fee: Number(fee), admissionStart, admissionEnd }),
+        body: JSON.stringify({ semester, fee: Number(fee), admissionStart, admissionEnd, examWindowStart, examWindowEnd }),
       });
       const data = await res.json();
       writeSemesterSettings({ semester, fee: Number(fee), admissionStart, admissionEnd });
@@ -199,6 +203,22 @@ const FeeSettingsTab = () => {
           <p><span className="font-medium text-foreground">Admission Start:</span> {formatSemesterDate(admissionStart)}</p>
           <p><span className="font-medium text-foreground">Admission End:</span> {formatSemesterDate(admissionEnd)}</p>
         </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="text-sm font-medium block mb-1">Exam Window Start</label>
+            <input type="date" value={examWindowStart} onChange={e => setExamWindowStart(e.target.value)} className="w-full px-3 py-2 border rounded text-sm" />
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-1">Exam Window End</label>
+            <input type="date" value={examWindowEnd} onChange={e => setExamWindowEnd(e.target.value)} className="w-full px-3 py-2 border rounded text-sm" />
+          </div>
+        </div>
+        {(examWindowStart || examWindowEnd) && (
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+            <p><span className="font-medium text-foreground">Exam Window:</span> {formatSemesterDate(examWindowStart)} → {formatSemesterDate(examWindowEnd)}</p>
+            <p className="mt-1 text-muted-foreground">Sub-admins can only schedule exams within this window.</p>
+          </div>
+        )}
         <div className="flex gap-3">
           <Button onClick={() => save(false)} disabled={loading}>{loading ? 'Saving...' : 'Save'}</Button>
           <Button variant="outline" onClick={() => save(true)} disabled={notifying}>{notifying ? 'Notifying...' : 'Save & Notify Students'}</Button>
@@ -299,6 +319,21 @@ const AdminPanel = () => {
   const [editingAdminStatus, setEditingAdminStatus] = useState<string>("");
   const [editingAdminCourses, setEditingAdminCourses] = useState<string[]>([]);
   const [assignmentAdminId, setAssignmentAdminId] = useState<string>("");
+  const [assignmentFilter, setAssignmentFilter] = useState<"all" | "assigned" | "unassigned">("all");
+  const [assessmentInnerTab, setAssessmentInnerTab] = useState<"assessments" | "exams" | "timetable">("assessments");
+  const [myCourseInnerTab, setMyCourseInnerTab] = useState<"courses" | "results" | "schedule">("courses");
+  const [coursesInnerTab, setCoursesInnerTab] = useState<"courses" | "results" | "schedule">("courses");
+  const [exams, setExams] = useState<any[]>([]);
+  const [showAddExam, setShowAddExam] = useState(false);
+  const [newExam, setNewExam] = useState({ course: '', title: '', exam_link: '', start_time: '', end_time: '', num_questions: '', duration: '60', instructions: '' });
+  const [examClash, setExamClash] = useState<any>(null);
+  const [examResults, setExamResults] = useState<any[]>([]);
+  const [selectedResultCourse, setSelectedResultCourse] = useState<string | null>(null);
+  const [courseResults, setCourseResults] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<any[]>([]);
+  const [showAddSchedule, setShowAddSchedule] = useState(false);
+  const [newSchedule, setNewSchedule] = useState({ course: '', day_of_week: 'Monday', start_time: '', end_time: '', venue: 'Online', platform: '', meeting_link: '', notes: '' });
+  const [checkingClash, setCheckingClash] = useState(false);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string[]>>({});
   const [dataLoading, setDataLoading] = useState(false);
   const [assessments, setAssessments] = useState<any[]>([]);
@@ -343,7 +378,7 @@ const AdminPanel = () => {
         })));
       }
       if (paymentsRes?.data || Array.isArray(paymentsRes)) setPaymentsState(paymentsRes?.data || paymentsRes);
-      if (studentsRes?.data) setStudents(studentsRes.data.map((s) => ({ id: String(s.id), name: s.username || s.email, email: s.email, semester: 'Sem 1', status: 'Active', gpa: '0.0' })));
+      if (studentsRes?.data) setStudents(studentsRes.data.map((s) => ({ id: String(s.id), name: s.username || s.email, email: s.email, semester: s.semester || 'Sem 1', status: 'Active', gpa: '0.0', enrolledCourses: s.enrolled_courses || [] })));
       if (coursesRes?.data) setCourses(coursesRes.data.map((c) => ({ id: String(c.id), title: c.title, semester: c.semester, enrolled: c.enrolled || 0, status: c.status })));
       if (statsRes) {
         setStats(statsRes);
@@ -442,6 +477,15 @@ if (studentsRes?.data) {
   setSettings({ name: settingsRes.name, contactNumber: settingsRes.contact_number, email: settingsRes.email });
 }
           if (assessmentsRes?.data) setAssessments(assessmentsRes.data);
+      try {
+        const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+        const examsRes = await fetch(apiUrl('/api/admin/exams'), { headers: { Authorization: 'Bearer ' + s?.token } }).then(r => r.ok ? r.json() : { data: [] });
+        if (examsRes?.data) setExams(examsRes.data);
+        const resultsRes = await fetch(apiUrl('/api/admin/exam-results'), { headers: { Authorization: 'Bearer ' + s?.token } }).then(r => r.ok ? r.json() : { data: [] });
+        if (resultsRes?.data) setExamResults(resultsRes.data);
+        const scheduleRes = await fetch(apiUrl('/api/admin/schedule'), { headers: { Authorization: 'Bearer ' + s?.token } }).then(r => r.ok ? r.json() : { data: [] });
+        if (scheduleRes?.data) setSchedules(scheduleRes.data);
+      } catch(e) { console.error('Exams fetch error:', e); }
         } catch (e) {
           console.error(e);
         } finally {
@@ -479,7 +523,22 @@ if (studentsRes?.data) {
 
   useEffect(() => {
     const session = localStorage.getItem("ami_admin_session");
-    if (session) setIsLoggedIn(true);
+    if (session) {
+      try {
+        const s = JSON.parse(session);
+        const token = s?.token;
+        if (token) {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          if (payload.exp && payload.exp * 1000 < Date.now()) {
+            localStorage.removeItem('ami_admin_session');
+          } else {
+            setIsLoggedIn(true);
+          }
+        }
+      } catch {
+        localStorage.removeItem('ami_admin_session');
+      }
+    }
     checkLockout();
   }, []);
 
@@ -657,6 +716,20 @@ const exportData = async (type: string) => {
   };
 
   const updateAdminBackend = async (userId: any, role?: string, admin_status?: string, assignedCourses?: string[]) => {
+    // If only assigning courses, use dedicated endpoint
+    if (assignedCourses !== undefined && !role && !admin_status) {
+      const session = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+      const token = session?.token;
+      const res = await fetch(apiUrl(`/api/admin/admins/${userId}/assign-courses`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ assignedCourses }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed'); }
+      const updated = await res.json();
+      setAdminAccounts((a) => a.map(x => x.id === updated.id ? { ...x, assignedCourses: updated.assigned_courses || assignedCourses } : x));
+      return;
+    }
     try {
       const headers = getAuthHeader();
       const res = await fetch(apiUrl('/api/admin/admins/' + userId), {
@@ -865,9 +938,17 @@ const exportData = async (type: string) => {
 
 
 
-  const filteredStudents = students.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredStudents = students.filter((s) => {
+    const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.id.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
+
+  // For sub-admins: only show students enrolled in their assigned courses
+  const visibleStudents = isSuperAdmin
+    ? filteredStudents
+    : filteredStudents.filter((s: any) =>
+        s.enrolledCourses?.some((c: string) => currentAssignedCourseIds.includes(c))
+      );
 
   const pendingApps = applications.filter((a) => a.status === "Pending");
   const currentAssignedCourseIds = normalizeAssignedCourses(currentAdmin?.assignedCourses);
@@ -959,7 +1040,7 @@ const exportData = async (type: string) => {
           </div>
         </div>
         <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
-          {sidebarItems.filter(i => !i.superOnly || isSuperAdmin).map((item) => {
+          {sidebarItems.filter(i => (!i.superOnly || isSuperAdmin) && (!i.subOnly || !isSuperAdmin) && (!i.requiresCourse || isSuperAdmin || currentAssignedCourseIds.length > 0)).map((item) => {
             const pendingAdminCount = adminAccounts.filter((a: any) => a.status === "pending").length;
             return (
             <button
@@ -1209,6 +1290,12 @@ const exportData = async (type: string) => {
           )}
           {activeTab === "students" && (
             <div className="space-y-4">
+              {!isSuperAdmin && currentAssignedCourseIds.length === 0 && (
+                <div className="bg-accent/10 border border-accent/20 rounded-xl p-5 text-center">
+                  <p className="text-sm font-semibold text-accent">You have not been assigned to any course yet.</p>
+                  <p className="text-xs text-muted-foreground mt-1">You can only view students enrolled in your assigned courses.</p>
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row gap-3 justify-between">
                 <div className="relative flex-1 max-w-md">
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -1247,7 +1334,7 @@ const exportData = async (type: string) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredStudents.map((s) => (
+                      {visibleStudents.map((s) => (
                         <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                           <td className="p-4 text-muted-foreground">{s.id}</td>
                           <td className="p-4 font-medium text-foreground">{s.name}</td>
@@ -1270,9 +1357,20 @@ const exportData = async (type: string) => {
           )}
           {activeTab === "courses" && (
             <div className="space-y-4">
+              <h2 className="font-heading text-lg font-bold text-foreground">Courses</h2>
+              <div className="flex gap-2 flex-wrap">
+                {["courses", "results", "schedule"].map(t => (
+                  <button key={t} onClick={() => setCoursesInnerTab(t as any)}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${coursesInnerTab === t ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:bg-muted"}`}>
+                    {t === "courses" ? "📚 Courses" : t === "results" ? "📊 Exam Results" : "🗓️ Schedule"}
+                  </button>
+                ))}
+              </div>
+              {coursesInnerTab === "courses" && (
+              <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="font-heading text-lg font-bold text-foreground">Courses</h2>
-{isSuperAdmin && <Button variant="gold" onClick={() => setShowAddCourse(true)} className="gap-2"><Plus size={16} /> Add Course</Button>}
+                <span />
+                {isSuperAdmin && <Button variant="gold" onClick={() => setShowAddCourse(true)} className="gap-2"><Plus size={16} /> Add Course</Button>}
               </div>
               {showAddCourse && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
@@ -1316,47 +1414,361 @@ const exportData = async (type: string) => {
                 ))}
               </div>
             </div>
+              )}
+
+              {/* Exam Results inner tab for super admin */}
+              {coursesInnerTab === "results" && (
+                <div className="space-y-4">
+                  {!selectedResultCourse ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">Click a course to view student results.</p>
+                      {(() => {
+                        const allCourses = [...new Set(examResults.map((r: any) => r.course))];
+                        if (allCourses.length === 0) return (
+                          <div className="bg-card rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">No exam results yet.</div>
+                        );
+                        return (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {allCourses.map((course: any) => {
+                              const data = examResults.filter((r: any) => r.course === course);
+                              const avg = data.length > 0 ? Math.round(data.reduce((s: number, r: any) => s + Number(r.percentage), 0) / data.length) : 0;
+                              return (
+                                <div key={course} onClick={() => { setSelectedResultCourse(course); setCourseResults(data); }}
+                                  className="bg-card rounded-xl border border-border p-5 cursor-pointer hover:border-primary transition-colors">
+                                  <h3 className="font-heading text-base font-semibold">{course}</h3>
+                                  <p className="text-sm text-muted-foreground mt-1">{data.length} submission{data.length !== 1 ? 's' : ''} · Avg: {avg}%</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <div className="space-y-4">
+                      <button onClick={() => setSelectedResultCourse(null)} className="text-sm text-primary hover:underline">← Back</button>
+                      <div className="bg-card rounded-xl border border-border overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border bg-muted/50">
+                              <th className="text-left p-4 font-semibold">Student</th>
+                              <th className="text-left p-4 font-semibold">Index</th>
+                              <th className="text-center p-4 font-semibold">Score</th>
+                              <th className="text-center p-4 font-semibold">%</th>
+                              <th className="text-left p-4 font-semibold">IP</th>
+                              <th className="text-left p-4 font-semibold">MAC</th>
+                              <th className="text-left p-4 font-semibold">Submitted</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {courseResults.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No results yet</td></tr>}
+                            {courseResults.map((r: any) => (
+                              <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                                <td className="p-4 font-medium">{r.student_name || '—'}</td>
+                                <td className="p-4 text-muted-foreground">{r.index_number || '—'}</td>
+                                <td className="p-4 text-center">{r.score}/{r.total}</td>
+                                <td className="p-4 text-center">
+                                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${Number(r.percentage) >= 60 ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{r.percentage}%</span>
+                                </td>
+                                <td className="p-4 text-xs text-muted-foreground">{r.ip_address || '—'}</td>
+                                <td className="p-4 text-xs text-muted-foreground">{r.mac_address || '—'}</td>
+                                <td className="p-4 text-xs text-muted-foreground">{r.submitted_at ? new Date(r.submitted_at).toLocaleString() : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Schedule inner tab for super admin */}
+              {coursesInnerTab === "timetable" && isSuperAdmin && (
+                <div className="flex justify-end mb-2">
+                  <Button variant="outline" onClick={() => {
+                    const doc = new jsPDF();
+                    doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+                    doc.text("Allahul Musta'an Institute", 105, 15, { align: 'center' });
+                    doc.setFontSize(12); doc.text("Exam Timetable", 105, 23, { align: 'center' });
+                    doc.line(10, 27, 200, 27);
+                    let y = 36;
+                    exams.filter((e: any) => e.approval_status === 'approved')
+                      .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+                      .forEach((e: any, i: number) => {
+                        doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+                        doc.text(`${i+1}. ${e.course} - ${e.title}`, 10, y); y += 6;
+                        doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+                        doc.text(`   Start: ${e.start_time ? new Date(e.start_time).toLocaleString() : '—'}`, 10, y); y += 5;
+                        doc.text(`   End: ${e.end_time ? new Date(e.end_time).toLocaleString() : '—'}`, 10, y); y += 5;
+                        doc.text(`   Duration: ${e.duration || '—'} mins | Questions: ${e.num_questions || '—'}`, 10, y); y += 5;
+                        y += 3;
+                        if (y > 270) { doc.addPage(); y = 20; }
+                      });
+                    doc.save('exam-timetable.pdf');
+                  }} className="gap-2"><FileText size={14} /> Download Exam Timetable</Button>
+                </div>
+              )}
+
+              {coursesInnerTab === "schedule" && (
+                <div className="bg-card rounded-xl border border-border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="text-left p-4 font-semibold">Course</th>
+                        <th className="text-left p-4 font-semibold">Day</th>
+                        <th className="text-left p-4 font-semibold">Time</th>
+                        <th className="text-left p-4 font-semibold">Venue</th>
+                        <th className="text-left p-4 font-semibold">Platform</th>
+                        <th className="text-left p-4 font-semibold">Teacher</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {schedules.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No schedules set yet</td></tr>}
+                      {schedules.map((s: any) => (
+                        <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                          <td className="p-4 font-medium">{s.course}</td>
+                          <td className="p-4 text-muted-foreground">{s.day_of_week}</td>
+                          <td className="p-4 text-muted-foreground">{s.start_time} — {s.end_time}</td>
+                          <td className="p-4 text-muted-foreground">{s.venue}</td>
+                          <td className="p-4 text-muted-foreground">{s.platform || '—'}</td>
+                          <td className="p-4 text-muted-foreground">{s.teacher_name || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           )}
           {activeTab === "assigned-courses" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-heading text-lg font-bold text-foreground">Assigned Courses</h2>
-                  <p className="text-sm text-muted-foreground">Courses assigned to your account by Super Admin.</p>
+              <h2 className="font-heading text-lg font-bold text-foreground">My Courses</h2>
+
+              {/* Inner tabs */}
+              <div className="flex gap-2 flex-wrap">
+                {["courses", "results", "schedule"].map(t => (
+                  <button key={t} onClick={() => setMyCourseInnerTab(t as any)}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${myCourseInnerTab === t ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:bg-muted"}`}>
+                    {t === "courses" ? "📚 My Courses" : t === "results" ? "📊 Exam Results" : "🗓️ Schedule"}
+                  </button>
+                ))}
+              </div>
+
+              {/* My Courses inner tab */}
+              {myCourseInnerTab === "courses" && (
+                <div className="bg-card rounded-xl border border-border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-muted/50">
+                        <th className="text-left p-4 font-semibold text-foreground">Course</th>
+                        <th className="text-left p-4 font-semibold text-foreground">Semester</th>
+                        <th className="text-left p-4 font-semibold text-foreground">Students</th>
+                        <th className="text-left p-4 font-semibold text-foreground">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentAssignedCourses.length === 0 && (
+                        <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">No courses assigned yet.</td></tr>
+                      )}
+                      {currentAssignedCourses.map((course: any) => (
+                        <tr key={course.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                          <td className="p-4 font-medium text-foreground">{course.title}</td>
+                          <td className="p-4 text-muted-foreground">{course.semester}</td>
+                          <td className="p-4 text-muted-foreground">{course.enrolled || 0} enrolled</td>
+                          <td className="p-4">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{course.status}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <span className="text-sm text-muted-foreground">{currentAssignedCourses.length} assigned</span>
-              </div>
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50">
-                      <th className="text-left p-4 font-semibold text-foreground">Course</th>
-                      <th className="text-left p-4 font-semibold text-foreground">Semester</th>
-                      <th className="text-left p-4 font-semibold text-foreground">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentAssignedCourses.length === 0 && (
-                      <tr>
-                        <td colSpan={3} className="p-8 text-center text-muted-foreground">
-                          No courses have been assigned to your account yet.
-                        </td>
-                      </tr>
-                    )}
-                    {currentAssignedCourses.map((course) => (
-                      <tr key={course.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                        <td className="p-4 font-medium text-foreground">{course.title}</td>
-                        <td className="p-4 text-muted-foreground">{course.semester}</td>
-                        <td className="p-4">
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                            {course.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              )}
+
+              {/* Exam Results inner tab */}
+              {myCourseInnerTab === "results" && (
+                <div className="space-y-4">
+                  {!selectedResultCourse ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">Click a course to view student results.</p>
+                      {(() => {
+                        const myCourses = [...new Set(examResults.map((r: any) => r.course))];
+                        if (myCourses.length === 0) return (
+                          <div className="bg-card rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">
+                            No exam results yet.
+                          </div>
+                        );
+                        return (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {myCourses.map((course: any) => {
+                              const data = examResults.filter((r: any) => r.course === course);
+                              const avg = data.length > 0 ? Math.round(data.reduce((s: number, r: any) => s + Number(r.percentage), 0) / data.length) : 0;
+                              return (
+                                <div key={course} onClick={() => { setSelectedResultCourse(course); setCourseResults(data); }}
+                                  className="bg-card rounded-xl border border-border p-5 cursor-pointer hover:border-primary transition-colors">
+                                  <h3 className="font-heading text-base font-semibold">{course}</h3>
+                                  <p className="text-sm text-muted-foreground mt-1">{data.length} submission{data.length !== 1 ? 's' : ''} · Avg: {avg}%</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <div className="space-y-4">
+                      <button onClick={() => setSelectedResultCourse(null)} className="text-sm text-primary hover:underline">← Back</button>
+                      <div className="bg-card rounded-xl border border-border overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border bg-muted/50">
+                              <th className="text-left p-4 font-semibold">Student</th>
+                              <th className="text-left p-4 font-semibold">Index No.</th>
+                              <th className="text-center p-4 font-semibold">Score</th>
+                              <th className="text-center p-4 font-semibold">%</th>
+                              <th className="text-left p-4 font-semibold">IP</th>
+                              <th className="text-left p-4 font-semibold">MAC</th>
+                              <th className="text-left p-4 font-semibold">Submitted</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {courseResults.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No results yet</td></tr>}
+                            {courseResults.map((r: any) => (
+                              <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                                <td className="p-4 font-medium">{r.student_name || '—'}</td>
+                                <td className="p-4 text-muted-foreground">{r.index_number || '—'}</td>
+                                <td className="p-4 text-center">{r.score}/{r.total}</td>
+                                <td className="p-4 text-center">
+                                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${Number(r.percentage) >= 60 ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>{r.percentage}%</span>
+                                </td>
+                                <td className="p-4 text-xs text-muted-foreground">{r.ip_address || '—'}</td>
+                                <td className="p-4 text-xs text-muted-foreground">{r.mac_address || '—'}</td>
+                                <td className="p-4 text-xs text-muted-foreground">{r.submitted_at ? new Date(r.submitted_at).toLocaleString() : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Schedule inner tab */}
+              {myCourseInnerTab === "schedule" && (
+                <div className="space-y-4">
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => {
+                      const doc = new jsPDF();
+                      doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+                      doc.text("Allahul Musta'an Institute", 105, 15, { align: 'center' });
+                      doc.setFontSize(12); doc.text("Class Timetable", 105, 23, { align: 'center' });
+                      doc.line(10, 27, 200, 27);
+                      let y = 36;
+                      ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].forEach(day => {
+                        const cls = schedules.filter((s: any) => s.day_of_week === day && currentAssignedCourseIds.includes(s.course));
+                        if (!cls.length) return;
+                        doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+                        doc.text(day, 10, y); y += 5;
+                        doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+                        cls.forEach((s: any) => {
+                          doc.text(`  ${s.course} | ${s.start_time} - ${s.end_time} | ${s.venue}`, 10, y); y += 5;
+                          if (s.meeting_link) { doc.text(`  Link: ${s.meeting_link}`, 10, y); y += 5; }
+                        });
+                        y += 3;
+                      });
+                      doc.save('class-timetable.pdf');
+                    }} className="gap-2"><FileText size={14} /> Download</Button>
+                    <Button variant="gold" onClick={() => setShowAddSchedule(true)} className="gap-2"><Plus size={16} /> Add Schedule</Button>
+                  </div>
+                  {showAddSchedule && (
+                    <div className="bg-card rounded-xl border border-border p-5 space-y-3">
+                      <h3 className="font-heading font-semibold">Set Class Schedule</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <select value={newSchedule.course} onChange={e => setNewSchedule({...newSchedule, course: e.target.value})} className={inputClass}>
+                          <option value="">Select Course</option>
+                          {currentAssignedCourses.map((c: any) => <option key={c.id} value={c.title}>{c.title}</option>)}
+                        </select>
+                        <select value={newSchedule.day_of_week} onChange={e => setNewSchedule({...newSchedule, day_of_week: e.target.value})} className={inputClass}>
+                          {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(d => <option key={d}>{d}</option>)}
+                        </select>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Start Time</label>
+                          <input type="time" value={newSchedule.start_time} onChange={e => setNewSchedule({...newSchedule, start_time: e.target.value})} className={inputClass} />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">End Time</label>
+                          <input type="time" value={newSchedule.end_time} onChange={e => setNewSchedule({...newSchedule, end_time: e.target.value})} className={inputClass} />
+                        </div>
+                        <select value={newSchedule.venue} onChange={e => setNewSchedule({...newSchedule, venue: e.target.value})} className={inputClass}>
+                          <option>Online</option><option>Physical</option><option>Hybrid</option>
+                        </select>
+                        <input value={newSchedule.platform} onChange={e => setNewSchedule({...newSchedule, platform: e.target.value})} className={inputClass} placeholder="Platform (Zoom, Meet...)" />
+                        <input value={newSchedule.meeting_link} onChange={e => setNewSchedule({...newSchedule, meeting_link: e.target.value})} className={inputClass} placeholder="Meeting link (optional)" />
+                        <input value={newSchedule.notes} onChange={e => setNewSchedule({...newSchedule, notes: e.target.value})} className={inputClass} placeholder="Notes (optional)" />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={async () => {
+                          try {
+                            const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                            const res = await fetch(apiUrl('/api/admin/schedule'), {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token },
+                              body: JSON.stringify(newSchedule),
+                            });
+                            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+                            const data = await res.json();
+                            setSchedules(prev => [...prev.filter((x: any) => !(x.course === data.course && x.day_of_week === data.day_of_week)), data]);
+                            setShowAddSchedule(false);
+                            setNewSchedule({ course: '', day_of_week: 'Monday', start_time: '', end_time: '', venue: 'Online', platform: '', meeting_link: '', notes: '' });
+                            toast.success('Schedule saved!');
+                          } catch(e: any) { toast.error(e.message); }
+                        }}>Save</Button>
+                        <Button variant="outline" onClick={() => setShowAddSchedule(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="bg-card rounded-xl border border-border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/50">
+                          <th className="text-left p-4 font-semibold">Course</th>
+                          <th className="text-left p-4 font-semibold">Day</th>
+                          <th className="text-left p-4 font-semibold">Time</th>
+                          <th className="text-left p-4 font-semibold">Venue</th>
+                          <th className="text-left p-4 font-semibold">Platform</th>
+                          <th className="text-left p-4 font-semibold"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {schedules.filter((s: any) => currentAssignedCourseIds.includes(s.course)).length === 0 && (
+                          <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No schedules set yet</td></tr>
+                        )}
+                        {schedules.filter((s: any) => currentAssignedCourseIds.includes(s.course)).map((s: any) => (
+                          <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                            <td className="p-4 font-medium">{s.course}</td>
+                            <td className="p-4 text-muted-foreground">{s.day_of_week}</td>
+                            <td className="p-4 text-muted-foreground">{s.start_time} — {s.end_time}</td>
+                            <td className="p-4 text-muted-foreground">{s.venue}</td>
+                            <td className="p-4 text-muted-foreground">{s.platform || '—'}</td>
+                            <td className="p-4">
+                              <button onClick={async () => {
+                                try {
+                                  const sess = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                                  await fetch(apiUrl('/api/admin/schedule/' + s.id), { method: 'DELETE', headers: { Authorization: 'Bearer ' + sess?.token } });
+                                  setSchedules(prev => prev.filter((x: any) => x.id !== s.id));
+                                  toast.success('Removed');
+                                } catch(e: any) { toast.error(e.message); }
+                              }} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {activeTab === "grades" && (
@@ -1366,14 +1778,31 @@ const exportData = async (type: string) => {
                   <h2 className="font-heading text-lg font-bold text-foreground">Grades & Results</h2>
                   <p className="text-sm text-muted-foreground mt-1">{pendingGradeCount} grade{pendingGradeCount === 1 ? "" : "s"} pending approval.</p>
                 </div>
-                <Button variant="gold" onClick={() => setShowAddGrade(true)} className="gap-2"><Plus size={16} /> Add Grade</Button>
+                {(isSuperAdmin || currentAssignedCourseIds.length > 0) && (
+                  <Button variant="gold" onClick={() => setShowAddGrade(true)} className="gap-2"><Plus size={16} /> Add Grade</Button>
+                )}
               </div>
+              {!isSuperAdmin && currentAssignedCourseIds.length === 0 && (
+                <div className="bg-accent/10 border border-accent/20 rounded-xl p-5 text-center">
+                  <p className="text-sm font-semibold text-accent">You have not been assigned to any course yet.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Contact the Super Admin to get a course assigned to you.</p>
+                </div>
+              )}
               {showAddGrade && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
                   <h3 className="font-heading font-semibold text-foreground">Enter New Grade</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <input value={newGrade.student} onChange={(e) => setNewGrade({ ...newGrade, student: e.target.value })} className={inputClass} placeholder="Student Index Number" />
-                    <input value={newGrade.course} onChange={(e) => setNewGrade({ ...newGrade, course: e.target.value })} className={inputClass} placeholder="Course" />
+                    {isSuperAdmin ? (
+                      <input value={newGrade.course} onChange={(e) => setNewGrade({ ...newGrade, course: e.target.value })} className={inputClass} placeholder="Course" />
+                    ) : (
+                      <select value={newGrade.course} onChange={(e) => setNewGrade({ ...newGrade, course: e.target.value })} className={inputClass}>
+                        <option value="">Select Course</option>
+                        {currentAssignedCourses.map((c: any) => (
+                          <option key={c.id} value={c.title}>{c.title}</option>
+                        ))}
+                      </select>
+                    )}
                     <input type="number" value={newGrade.midterm} onChange={(e) => setNewGrade({ ...newGrade, midterm: e.target.value })} className={inputClass} placeholder="Midterm" />
                     <input type="number" value={newGrade.final} onChange={(e) => setNewGrade({ ...newGrade, final: e.target.value })} className={inputClass} placeholder="Final" />
                   </div>
@@ -1399,7 +1828,7 @@ const exportData = async (type: string) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {grades.map((g, i) => (
+                      {(isSuperAdmin ? grades : grades.filter((g: any) => currentAssignedCourseIds.includes(g.course))).map((g, i) => (
                         <tr key={g.id} className="border-b border-border last:border-0">
                           <td className="p-4 font-medium text-foreground">{g.student}</td>
                           <td className="p-4 text-muted-foreground">{g.course}</td>
@@ -1567,7 +1996,7 @@ const exportData = async (type: string) => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="font-heading text-lg font-bold text-foreground">Admin Approvals</h2>
-                <span className="text-sm text-muted-foreground">{adminAccounts.length} total · {adminAccounts.filter((a:any)=>a.status==="pending").length} pending</span>
+                <span className="text-sm text-muted-foreground">{adminAccounts.filter((a:any)=>a.role!=="super").length} total · {adminAccounts.filter((a:any)=>a.status==="pending" && a.role!=="super").length} pending</span>
               </div>
               {adminAccounts.length === 0 ? (
                 <div className="bg-card rounded-xl border border-border p-12 text-center">
@@ -1576,7 +2005,7 @@ const exportData = async (type: string) => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {adminAccounts.map((a: any) => (
+                  {adminAccounts.filter((a: any) => a.role !== "super").map((a: any) => (
                     <div key={a.email} className="bg-card rounded-xl border border-border p-5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
@@ -1656,6 +2085,33 @@ const exportData = async (type: string) => {
                 </div>
                 <span className="text-sm text-muted-foreground">{adminAccounts.filter((admin) => admin.role !== "super").length} editable accounts</span>
               </div>
+              {/* Inner tabs: Assigned vs Unassigned */}
+              {(() => {
+                const subAdmins = adminAccounts.filter((a: any) => a.role !== "super");
+                const assignedAdmins = subAdmins.filter((a: any) => normalizeAssignedCourses(a.assignedCourses).length > 0);
+                const unassignedAdmins = subAdmins.filter((a: any) => normalizeAssignedCourses(a.assignedCourses).length === 0);
+                return (
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      {["all", "assigned", "unassigned"].map((t) => (
+                        <button key={t} onClick={() => setAssignmentFilter(t as any)}
+                          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${assignmentFilter === t ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:bg-muted"}`}>
+                          {t === "all" ? `All (${subAdmins.length})` : t === "assigned" ? `Assigned (${assignedAdmins.length})` : `Unassigned (${unassignedAdmins.length})`}
+                        </button>
+                      ))}
+                    </div>
+                    {unassignedAdmins.length > 0 && assignmentFilter === "unassigned" && (
+                      <div className="bg-accent/10 border border-accent/20 rounded-xl p-4">
+                        <p className="text-sm font-semibold text-accent mb-2">⚠️ These sub-admins have no courses assigned:</p>
+                        {unassignedAdmins.map((a: any) => (
+                          <p key={a.id} className="text-sm text-muted-foreground">· {a.username} ({a.email})</p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {adminAccounts.filter((admin) => admin.role !== "super").length === 0 ? (
                 <div className="bg-card rounded-xl border border-border p-10 text-center text-muted-foreground">
                   No sub-admin accounts available for assignment.
@@ -1752,19 +2208,49 @@ const exportData = async (type: string) => {
           )}
           {activeTab === "assessments" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="font-heading text-lg font-bold text-foreground">Exams & Assessments</h2>
-                  <p className="text-sm text-muted-foreground">Admins and sub-admins can upload upcoming exams here.</p>
+              <h2 className="font-heading text-lg font-bold text-foreground">Assessments & Exams</h2>
+
+              {!isSuperAdmin && currentAssignedCourseIds.length === 0 && (
+                <div className="bg-accent/10 border border-accent/20 rounded-xl p-5 text-center">
+                  <p className="text-sm font-semibold text-accent">You have not been assigned to any course yet.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Contact the Super Admin to get a course assigned to you.</p>
                 </div>
-                <Button variant="gold" onClick={() => setShowAddAssessment(true)} className="gap-2"><Plus size={16} /> Upload Exam Link</Button>
+              )}
+
+              {/* Inner tabs */}
+              <div className="flex gap-2 flex-wrap">
+                {["assessments", "exams", "timetable"].map((t) => (
+                  <button key={t} onClick={() => setAssessmentInnerTab(t as any)}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${assessmentInnerTab === t ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:bg-muted"}`}>
+                    {t === "assessments" ? "📋 Assessments (CA)" : t === "exams" ? "📝 Exams" : "🗓️ Timetable"}
+                  </button>
+                ))}
+              </div>
+
+              {/* ASSESSMENTS INNER TAB */}
+              {assessmentInnerTab === "assessments" && (
+              <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">Continuous assessments — quizzes, assignments, class tests.</p>
+                {(isSuperAdmin || currentAssignedCourseIds.length > 0) && (
+                  <Button variant="gold" onClick={() => setShowAddAssessment(true)} className="gap-2"><Plus size={16} /> Add Assessment</Button>
+                )}
               </div>
               {showAddAssessment && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
                   <h3 className="font-heading font-semibold text-foreground">New Exam Upload</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input value={newAssessment.title} onChange={e => setNewAssessment({...newAssessment, title: e.target.value})} className={inputClass} placeholder="Title" />
-                    <input value={newAssessment.course} onChange={e => setNewAssessment({...newAssessment, course: e.target.value})} className={inputClass} placeholder="Course" />
+                    {isSuperAdmin ? (
+                      <input value={newAssessment.course} onChange={e => setNewAssessment({...newAssessment, course: e.target.value})} className={inputClass} placeholder="Course" />
+                    ) : (
+                      <select value={newAssessment.course} onChange={e => setNewAssessment({...newAssessment, course: e.target.value})} className={inputClass}>
+                        <option value="">Select Course</option>
+                        {currentAssignedCourses.map((c: any) => (
+                          <option key={c.id} value={c.title}>{c.title}</option>
+                        ))}
+                      </select>
+                    )}
                     <select value={newAssessment.type} onChange={e => setNewAssessment({...newAssessment, type: e.target.value})} className={inputClass}>
                       <option>Exam</option>
                       <option>Quiz</option>
@@ -1782,13 +2268,6 @@ const exportData = async (type: string) => {
                       <option>Posted</option>
                       <option>Upcoming</option>
                     </select>
-                    <input value={newAssessment.duration} onChange={e => setNewAssessment({...newAssessment, duration: e.target.value})} className={inputClass} placeholder="Duration in minutes" />
-                    <input
-                      value={newAssessment.examLink}
-                      onChange={e => setNewAssessment({...newAssessment, examLink: e.target.value})}
-                      className={inputClass}
-                      placeholder="Exam link (Google Form, Quiz link, or external exam URL)"
-                    />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Enter one date or several dates separated by commas or new lines. Paste the exam link students should open in their portal.
@@ -1832,13 +2311,12 @@ const exportData = async (type: string) => {
                       <th className="text-left p-4 font-semibold">Course</th>
                       <th className="text-left p-4 font-semibold">Type</th>
                       <th className="text-left p-4 font-semibold">Status</th>
-                      <th className="text-left p-4 font-semibold">Exam Link</th>
                       <th className="text-left p-4 font-semibold">Approval</th>
                       <th className="text-left p-4 font-semibold"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {assessments.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No assessments yet</td></tr>}
+                    {assessments.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No assessments yet</td></tr>}
                     {assessments.map((a: any) => (
                       <tr key={a.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                         <td className="p-4 font-medium">{a.title}</td>
@@ -1850,7 +2328,6 @@ const exportData = async (type: string) => {
                             <p className="text-xs text-muted-foreground">{formatExamDateList(a.examDates || a.exam_dates || a.dates || a.posted)}</p>
                           </div>
                         </td>
-                        <td className="p-4 text-muted-foreground max-w-[220px] truncate">{a.examLink || a.exam_link || a.url || a.link || "No exam link"}</td>
                         <td className="p-4">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${a.approval_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                             {a.approval_status === 'approved' ? 'Approved' : 'Pending'}
@@ -1885,6 +2362,226 @@ const exportData = async (type: string) => {
                   </tbody>
                 </table>
               </div>
+            </div>
+              )}
+              {assessmentInnerTab === "exams" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">Formal exams with time window and third-party link.</p>
+                    {(isSuperAdmin || currentAssignedCourseIds.length > 0) && (
+                      <Button variant="gold" onClick={() => setShowAddExam(true)} className="gap-2"><Plus size={16} /> Schedule Exam</Button>
+                    )}
+                  </div>
+                  {showAddExam && (
+                    <div className="bg-card rounded-xl border border-border p-5 space-y-3">
+                      <h3 className="font-heading font-semibold text-foreground">Schedule New Exam</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input value={newExam.title} onChange={e => setNewExam({...newExam, title: e.target.value})} className={inputClass} placeholder="Exam Title" />
+                        {isSuperAdmin ? (
+                          <input value={newExam.course} onChange={e => setNewExam({...newExam, course: e.target.value})} className={inputClass} placeholder="Course" />
+                        ) : (
+                          <select value={newExam.course} onChange={e => setNewExam({...newExam, course: e.target.value})} className={inputClass}>
+                            <option value="">Select Course</option>
+                            {currentAssignedCourses.map((c: any) => (
+                              <option key={c.id} value={c.title}>{c.title}</option>
+                            ))}
+                          </select>
+                        )}
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Exam Start Time</label>
+                          <input type="datetime-local" value={newExam.start_time} onChange={e => setNewExam({...newExam, start_time: e.target.value})} className={inputClass} />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">Exam End Time</label>
+                          <input type="datetime-local" value={newExam.end_time} onChange={async e => {
+                          const end = e.target.value;
+                          setNewExam({...newExam, end_time: end});
+                          if (newExam.course && newExam.start_time && end) {
+                            setCheckingClash(true);
+                            try {
+                              const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                              const res = await fetch(apiUrl('/api/admin/exams/check-clash'), {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token },
+                                body: JSON.stringify({ course: newExam.course, start_time: newExam.start_time, end_time: end }),
+                              });
+                              const data = await res.json();
+                              setExamClash(data.clash ? data : null);
+                            } catch(e) { setExamClash(null); }
+                            setCheckingClash(false);
+                          }
+                        }} className={inputClass} />
+                        </div>
+                        <input value={newExam.exam_link} onChange={e => setNewExam({...newExam, exam_link: e.target.value})} className={inputClass} placeholder="Third-party exam link (Google Form, etc.)" />
+                        <input type="number" value={newExam.num_questions} onChange={e => setNewExam({...newExam, num_questions: e.target.value})} className={inputClass} placeholder="Number of questions" />
+                        <input type="number" value={newExam.duration} onChange={e => setNewExam({...newExam, duration: e.target.value})} className={inputClass} placeholder="Duration (minutes)" />
+                        <input value={newExam.instructions} onChange={e => setNewExam({...newExam, instructions: e.target.value})} className={inputClass} placeholder="Instructions (optional)" />
+                      </div>
+                      {checkingClash && <p className="text-xs text-muted-foreground">Checking for clashes...</p>}
+                      {examClash && (
+                        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1">
+                          <p className="text-sm font-semibold text-destructive">⚠️ Time Clash Detected!</p>
+                          <p className="text-xs text-muted-foreground">The following exams clash with your selected time (must be 3+ hours apart):</p>
+                          {examClash.clashes?.map((c: any, i: number) => (
+                            <p key={i} className="text-xs text-destructive">• {c.course}: {c.title} — {new Date(c.start_time).toLocaleString()} to {new Date(c.end_time).toLocaleString()}</p>
+                          ))}
+                          <p className="text-xs font-medium text-destructive">Please choose a different date or time.</p>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Button onClick={async () => {
+                          if (examClash) { toast.error('Please resolve time clash before saving'); return; }
+                          try {
+                            const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                            const headers: any = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token };
+                            const res = await fetch(apiUrl('/api/admin/exams'), { method: 'POST', headers, body: JSON.stringify(newExam) });
+                            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+                            const data = await res.json();
+                            setExams(prev => [data, ...prev]);
+                            setNewExam({ course: '', title: '', exam_link: '', start_time: '', end_time: '', num_questions: '', duration: '60', instructions: '' });
+                            setShowAddExam(false);
+                            toast.success('Exam scheduled — awaiting super admin approval');
+                          } catch (e: any) { toast.error(e.message); }
+                        }}>Save</Button>
+                        <Button variant="outline" onClick={() => setShowAddExam(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="bg-card rounded-xl border border-border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/50">
+                          <th className="text-left p-4 font-semibold">Title</th>
+                          <th className="text-left p-4 font-semibold">Course</th>
+                          <th className="text-left p-4 font-semibold">Start</th>
+                          <th className="text-left p-4 font-semibold">End</th>
+                          <th className="text-left p-4 font-semibold">Link</th>
+                          <th className="text-left p-4 font-semibold">Approval</th>
+                          <th className="text-left p-4 font-semibold"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {exams.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No exams scheduled yet</td></tr>}
+                        {exams.map((e: any) => (
+                          <tr key={e.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                            <td className="p-4 font-medium">{e.title}</td>
+                            <td className="p-4 text-muted-foreground">{e.course}</td>
+                            <td className="p-4 text-muted-foreground text-xs">{e.start_time ? new Date(e.start_time).toLocaleString() : '—'}</td>
+                            <td className="p-4 text-muted-foreground text-xs">{e.end_time ? new Date(e.end_time).toLocaleString() : '—'}</td>
+                            <td className="p-4 text-xs">
+                              {e.exam_link ? <a href={e.exam_link} target="_blank" rel="noopener noreferrer" className="text-primary underline">Open Link</a> : '—'}
+                            </td>
+                            <td className="p-4">
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${e.approval_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                {e.approval_status === 'approved' ? 'Approved' : 'Pending'}
+                              </span>
+                            </td>
+                            <td className="p-4 flex gap-2">
+                              {isSuperAdmin && e.approval_status !== 'approved' && (
+                                <Button size="sm" onClick={async () => {
+                                  try {
+                                    const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                                    const res = await fetch(apiUrl('/api/admin/exams/' + e.id + '/approve'), { method: 'PUT', headers: { Authorization: 'Bearer ' + s?.token } });
+                                    if (!res.ok) throw new Error('Failed');
+                                    setExams(prev => prev.map(x => x.id === e.id ? {...x, approval_status: 'approved'} : x));
+                                    toast.success('Exam approved');
+                                  } catch (err: any) { toast.error(err.message); }
+                                }}>Approve</Button>
+                              )}
+                              <Button size="sm" variant="outline" onClick={async () => {
+                                const newStart = prompt('New start time (YYYY-MM-DDTHH:MM):');
+                                const newEnd = prompt('New end time (YYYY-MM-DDTHH:MM):');
+                                if (!newStart || !newEnd) return;
+                                try {
+                                  const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                                  const res = await fetch(apiUrl('/api/admin/exams/' + e.id), {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token },
+                                    body: JSON.stringify({ start_time: newStart, end_time: newEnd }),
+                                  });
+                                  if (!res.ok) throw new Error('Failed');
+                                  const data = await res.json();
+                                  setExams(prev => prev.map(x => x.id === e.id ? {...x, ...data} : x));
+                                  toast.success('Exam rescheduled — students notified');
+                                } catch (err: any) { toast.error(err.message); }
+                              }}>Reschedule</Button>
+                              <Button size="sm" variant="outline" onClick={async () => {
+                                try {
+                                  const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                                  const res = await fetch(apiUrl('/api/admin/exams/' + e.id), {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token },
+                                    body: JSON.stringify({ status: 'on_hold' }),
+                                  });
+                                  if (!res.ok) throw new Error('Failed');
+                                  setExams(prev => prev.map(x => x.id === e.id ? {...x, status: 'on_hold'} : x));
+                                  toast.success('Exam put on hold — students notified');
+                                } catch (err: any) { toast.error(err.message); }
+                              }} className="text-accent border-accent/30">Hold</Button>
+                              {isSuperAdmin && (
+                                <button onClick={async () => {
+                                  try {
+                                    const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                                    await fetch(apiUrl('/api/admin/exams/' + e.id), { method: 'DELETE', headers: { Authorization: 'Bearer ' + s?.token } });
+                                    setExams(prev => prev.filter(x => x.id !== e.id));
+                                    toast.success('Exam deleted');
+                                  } catch (err: any) { toast.error(err.message); }
+                                }} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TIMETABLE INNER TAB */}
+              {assessmentInnerTab === "timetable" && (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">Approved exams timetable for this semester.</p>
+                  {exams.filter((e: any) => e.approval_status === 'approved').length === 0 ? (
+                    <div className="bg-card rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">
+                      No approved exams yet. Approve exams in the Exams tab to see them here.
+                    </div>
+                  ) : (
+                    <div className="bg-card rounded-xl border border-border overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/50">
+                            <th className="text-left p-4 font-semibold">Course</th>
+                            <th className="text-left p-4 font-semibold">Title</th>
+                            <th className="text-left p-4 font-semibold">Date</th>
+                            <th className="text-left p-4 font-semibold">Start</th>
+                            <th className="text-left p-4 font-semibold">End</th>
+                            <th className="text-left p-4 font-semibold">Duration</th>
+                            <th className="text-left p-4 font-semibold">Questions</th>
+                            <th className="text-left p-4 font-semibold">Set By</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {exams
+                            .filter((e: any) => e.approval_status === 'approved')
+                            .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+                            .map((e: any) => (
+                              <tr key={e.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                                <td className="p-4 font-medium text-foreground">{e.course}</td>
+                                <td className="p-4 text-muted-foreground">{e.title}</td>
+                                <td className="p-4 text-muted-foreground">{e.start_time ? new Date(e.start_time).toLocaleDateString() : '—'}</td>
+                                <td className="p-4 text-muted-foreground">{e.start_time ? new Date(e.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '—'}</td>
+                                <td className="p-4 text-muted-foreground">{e.end_time ? new Date(e.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '—'}</td>
+                                <td className="p-4 text-muted-foreground">{e.duration ? `${e.duration} mins` : '—'}</td>
+                                <td className="p-4 text-muted-foreground">{e.num_questions || '—'}</td>
+                                <td className="p-4 text-muted-foreground">{e.set_by_name || '—'}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
           {activeTab === "settings" && (

@@ -3,6 +3,7 @@ import apiClient from "@/lib/apiClient";
 import { apiUrl } from '@/lib/apiClient';
 import { Link } from "react-router-dom";
 import { BookOpen, GraduationCap, Bell, User, LogOut, Home, Clock, Award, Eye, EyeOff, KeyRound, Phone, ClipboardList, FileText, CheckCircle2 } from "lucide-react";
+import { jsPDF } from "jspdf";
 import useSessionTimeout from "@/hooks/useSessionTimeout";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
@@ -16,7 +17,7 @@ import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from 
 
 const StudentPortal = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "courses" | "assessments" | "results" | "notifications" | "security">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "courses" | "assessments" | "results" | "notifications" | "security" | "timetable">("dashboard");
   const [showPassword, setShowPassword] = useState(false);
   const [showSecurityPassword, setShowSecurityPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -29,6 +30,9 @@ const StudentPortal = () => {
   const [loadingData, setLoadingData] = useState(false);
   const [portalNotifications, setPortalNotifications] = useState<any[]>([]);
   const [studentAssessments, setStudentAssessments] = useState<any[]>([]);
+  const [studentExams, setStudentExams] = useState<any[]>([]);
+  const [studentSchedule, setStudentSchedule] = useState<any[]>([]);
+  const [examCountdowns, setExamCountdowns] = useState<Record<string, any>>({});
   const [gpaData, setGpaData] = useState<{ gpa: Record<string, number>; cgpa: number; totalCredits: number }>({ gpa: {}, cgpa: 0, totalCredits: 0 });
   const [semesterSettings, setSemesterSettings] = useState(() => readSemesterSettings());
   const [admissionOpen, setAdmissionOpen] = useState(true);
@@ -87,6 +91,18 @@ setStudentAssessments(
 if (gpaRes && typeof gpaRes.cgpa === "number") {
   setGpaData(gpaRes);
 }
+
+      // Fetch exams
+      try {
+        const examsRes = await fetch(apiUrl('/api/student/exams'), { headers }).then(r => r.ok ? r.json() : []);
+        if (Array.isArray(examsRes)) setStudentExams(examsRes);
+      } catch(e) { console.error('Exams fetch error:', e); }
+
+      // Fetch class schedule
+      try {
+        const scheduleRes = await fetch(apiUrl('/api/student/schedule'), { headers }).then(r => r.ok ? r.json() : []);
+        if (Array.isArray(scheduleRes)) setStudentSchedule(scheduleRes);
+      } catch(e) { console.error('Schedule fetch error:', e); }
       if (Array.isArray(coursesRes)) {
         setStudentCourses(coursesRes.map((c: any) => ({
           id: c.id,
@@ -94,6 +110,8 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
           semester: c.semester,
           enrolled: c.enrolled,
           status: c.status,
+          teacherName: c.teacher_name || null,
+          teacherEmail: c.teacher_email || null,
         })));
       }
     } catch (e) { console.error(e); }
@@ -121,7 +139,24 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
   useEffect(() => {
     const session = localStorage.getItem('ami_student_session');
-    if (session) { setIsLoggedIn(true); loadStudentData(); }
+    if (session) {
+      try {
+        const s = JSON.parse(session);
+        const token = s?.token;
+        if (!token) throw new Error('No token');
+        // Verify token is not expired by checking JWT payload
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+          localStorage.removeItem('ami_student_session');
+          toast.error('Session expired. Please log in again.');
+        } else {
+          setIsLoggedIn(true);
+          loadStudentData();
+        }
+      } catch {
+        localStorage.removeItem('ami_student_session');
+      }
+    }
     loadSemesterSettings();
   }, []);
 
@@ -209,7 +244,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
   const handleSignUp = async () => {
     const errors: string[] = [];
-    if (authForm.password.length !== 4) errors.push('Password must be exactly 4 digits');
+    if (authForm.password.length < 6) errors.push('Password must be at least 6 characters');
     if (errors.length > 0) { setAuthErrors(errors); return; }
     try {
       const res = await apiClient.studentSignup({ indexNumber: authForm.indexNumber, phone: authForm.phone, password: authForm.password });
@@ -221,6 +256,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
   };
 
   const handleForgotRequest = async () => {
+    if (!checkResetAttempts()) return;
     try {
       const res = await fetch(apiUrl('/api/auth/forgot'), {
         method: 'POST',
@@ -228,10 +264,12 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
         body: JSON.stringify({ phone: forgotPhone }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Phone number not found');
       incrementResetAttempts();
-      toast.success('Temporary password sent to your phone and email!');
+      toast.success('A temporary password has been sent to your email. Use it to log in, then change your password inside the portal.');
       setForgotMode(false);
       setResetStep('request');
+      setForgotPhone('');
     } catch (e: any) { toast.error(e.message || 'Phone number not found'); }
   };
 
@@ -246,7 +284,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
   };
 
   const handleResetPassword = () => {
-    if (!/^\d{4}$/.test(newPin)) { toast.error("Password must be exactly 4 digits"); return; }
+    if (newPin.length < 6) { toast.error("Password must be at least 6 characters"); return; }
     if (newPin !== confirmNewPin) { toast.error("Passwords do not match"); return; }
 
     const accounts = JSON.parse(localStorage.getItem("ami_student_accounts") || "[]");
@@ -274,6 +312,36 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
   };
 
 
+  // Exam countdown timer
+  useEffect(() => {
+    if (studentExams.length === 0) return;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const counts: Record<string, any> = {};
+      studentExams.forEach((e: any) => {
+        if (!e.start_time) return;
+        const start = new Date(e.start_time);
+        const end = new Date(e.end_time);
+        if (now >= start && now <= end) {
+          counts[e.id] = { status: 'active', timeLeft: Math.max(0, Math.floor((end.getTime() - now.getTime()) / 1000)) };
+        } else if (now < start) {
+          const diff = start.getTime() - now.getTime();
+          counts[e.id] = {
+            status: 'upcoming',
+            days: Math.floor(diff / 86400000),
+            hours: Math.floor((diff % 86400000) / 3600000),
+            minutes: Math.floor((diff % 3600000) / 60000),
+            seconds: Math.floor((diff % 60000) / 1000),
+          };
+        } else {
+          counts[e.id] = { status: 'closed' };
+        }
+      });
+      setExamCountdowns(counts);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [studentExams]);
+
   // Session timeout — 5 mins inactivity
   useSessionTimeout({
     timeoutMinutes: 5,
@@ -297,7 +365,10 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
       toast.error("Please fill in all password fields.");
       return;
     }
-
+    if (securityForm.newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters.");
+      return;
+    }
     if (securityForm.newPassword !== securityForm.confirmPassword) {
       toast.error("New passwords do not match.");
       return;
@@ -305,38 +376,99 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
     setSecuritySaving(true);
     try {
-      const accounts = JSON.parse(localStorage.getItem("ami_student_accounts") || "[]");
-      const accountIndex = accounts.findIndex((account: any) => String(account.indexNumber) === String(studentIndex));
-
-      if (accountIndex === -1) {
-        toast.error("Your account could not be found.");
-        return;
-      }
-
-      if (accounts[accountIndex].password !== securityForm.currentPassword) {
-        toast.error("Current password is incorrect.");
-        return;
-      }
-
-      accounts[accountIndex].password = securityForm.newPassword;
-      localStorage.setItem("ami_student_accounts", JSON.stringify(accounts));
-
-      const updatedSession = {
-        ...studentSession,
-        indexNumber: accounts[accountIndex].indexNumber,
-        index_number: accounts[accountIndex].indexNumber,
-        name: accounts[accountIndex].name || studentSession.name,
-        regNumber: accounts[accountIndex].regNumber || studentSession.regNumber,
-      };
-      localStorage.setItem("ami_student_session", JSON.stringify(updatedSession));
-
+      const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
+      const token = s?.token;
+      const res = await fetch(apiUrl('/api/student/change-password'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          currentPassword: securityForm.currentPassword,
+          newPassword: securityForm.newPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to update password');
       setSecurityForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       toast.success("Password updated successfully.");
+    } catch(e: any) {
+      toast.error(e.message || 'Failed to update password');
     } finally {
       setSecuritySaving(false);
     }
   };
 
+
+  // Download class timetable as PDF
+  const downloadClassTimetable = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Allahul Musta'an Institute", 105, 15, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text("Class Timetable", 105, 23, { align: 'center' });
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Student: ${session.name || 'Student'} | Index: ${session.index_number || session.indexNumber || ''}`, 105, 30, { align: 'center' });
+    doc.line(10, 33, 200, 33);
+
+    let y = 42;
+    const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    days.forEach(day => {
+      const dayClasses = studentSchedule.filter((s: any) => s.day_of_week === day);
+      if (dayClasses.length === 0) return;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(day, 10, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      dayClasses.forEach((s: any) => {
+        doc.text(`  ${s.course}`, 10, y);
+        doc.text(`${s.start_time} - ${s.end_time}`, 100, y);
+        doc.text(s.venue || 'Online', 150, y);
+        y += 6;
+        if (s.teacher_name) { doc.text(`  Teacher: ${s.teacher_name}`, 10, y); y += 5; }
+        if (s.meeting_link) { doc.text(`  Link: ${s.meeting_link}`, 10, y); y += 5; }
+      });
+      y += 3;
+      if (y > 270) { doc.addPage(); y = 20; }
+    });
+
+    doc.save('class-timetable.pdf');
+  };
+
+  // Download exam timetable as PDF
+  const downloadExamTimetable = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Allahul Musta'an Institute", 105, 15, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text("Exam Timetable", 105, 23, { align: 'center' });
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Student: ${session.name || 'Student'} | Index: ${session.index_number || session.indexNumber || ''}`, 105, 30, { align: 'center' });
+    doc.line(10, 33, 200, 33);
+
+    let y = 42;
+    studentExams.forEach((e: any, i: number) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.text(`${i + 1}. ${e.course}`, 10, y); y += 6;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`   Title: ${e.title}`, 10, y); y += 5;
+      if (e.start_time) { doc.text(`   Start: ${new Date(e.start_time).toLocaleString()}`, 10, y); y += 5; }
+      if (e.end_time) { doc.text(`   End: ${new Date(e.end_time).toLocaleString()}`, 10, y); y += 5; }
+      if (e.duration) { doc.text(`   Duration: ${e.duration} minutes`, 10, y); y += 5; }
+      if (e.num_questions) { doc.text(`   Questions: ${e.num_questions}`, 10, y); y += 5; }
+      if (e.instructions) { doc.text(`   Instructions: ${e.instructions}`, 10, y); y += 5; }
+      y += 4;
+      if (y > 270) { doc.addPage(); y = 20; }
+    });
+
+    doc.save('exam-timetable.pdf');
+  };
 
   const session = JSON.parse(localStorage.getItem("ami_student_session") || "{}");
   const inputClass = "w-full px-4 py-3 rounded-lg border border-border bg-background/80 backdrop-blur-sm text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all";
@@ -344,84 +476,57 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
   const transcriptGpa = gpaData.cgpa ? gpaData.cgpa.toFixed(2) : "0.00";
 
   const downloadTranscript = () => {
+    const doc = new jsPDF();
     const studentName = session.name || "Student";
     const indexNumber = session.index_number || session.indexNumber || session.regNumber || "N/A";
     const semesterLabel = semesterSettings.semester || "Current Semester";
 
-    const rows = studentResults
-      .map(
-        (result) => `
-          <tr>
-            <td>${escapeHtml(result.course)}</td>
-            <td style="text-align:center;">${escapeHtml(String(result.midterm ?? "-"))}</td>
-            <td style="text-align:center;">${escapeHtml(String(result.final ?? "-"))}</td>
-            <td style="text-align:center;"><strong>${escapeHtml(String(result.grade ?? "-"))}</strong></td>
-          </tr>`
-      )
-      .join("");
+    // Header
+    doc.setFontSize(18); doc.setFont('helvetica', 'bold');
+    doc.text("Allahul Musta'an Institute", 105, 18, { align: 'center' });
+    doc.setFontSize(11); doc.setFont('helvetica', 'normal');
+    doc.text("Official Student Transcript", 105, 26, { align: 'center' });
+    doc.line(10, 30, 200, 30);
 
-    const transcriptHtml = `
-      <!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${escapeHtml(studentName)} Transcript</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 32px; color: #111827; }
-            h1, h2, h3 { margin: 0; }
-            .muted { color: #6b7280; }
-            .card { border: 1px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-top: 18px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-            th, td { border-bottom: 1px solid #e5e7eb; padding: 10px 8px; font-size: 14px; }
-            th { text-align: left; background: #f9fafb; }
-            .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
-            .summary > div { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; }
-          </style>
-        </head>
-        <body>
-          <h1>Allāhul Musta'ān Institute</h1>
-          <p class="muted">Official Student Transcript</p>
+    // Student info
+    doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+    doc.text(studentName, 10, 40);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text(`Index Number: ${indexNumber}`, 10, 47);
+    doc.text(`Semester: ${semesterLabel}`, 10, 53);
+    doc.text(`CGPA: ${transcriptGpa}  |  Total Credits: ${gpaData.totalCredits}`, 10, 59);
+    doc.line(10, 63, 200, 63);
 
-          <div class="card">
-            <h2>${escapeHtml(studentName)}</h2>
-            <p class="muted">Index Number: ${escapeHtml(indexNumber)}</p>
-            <p class="muted">Semester: ${escapeHtml(semesterLabel)}</p>
-          </div>
+    let y = 72;
+    const semesters = [...new Set(studentResults.map((r: any) => r.semester || 'Current Semester'))];
+    semesters.forEach(sem => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+      doc.text(String(sem), 10, y);
+      const semGpa = gpaData.gpa[String(sem)];
+      if (semGpa) doc.text(`GPA: ${semGpa.toFixed(2)}`, 170, y);
+      y += 6;
+      doc.setFillColor(249, 250, 251);
+      doc.rect(10, y - 4, 190, 7, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+      doc.text('Course', 12, y); doc.text('Midterm', 120, y); doc.text('Final', 148, y); doc.text('Grade', 175, y);
+      y += 5; doc.line(10, y, 200, y); y += 4;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      studentResults.filter((r: any) => (r.semester || 'Current Semester') === sem).forEach((r: any) => {
+        doc.text(String(r.course || ''), 12, y);
+        doc.text(String(r.midterm ?? '-'), 120, y);
+        doc.text(String(r.final ?? '-'), 148, y);
+        doc.setFont('helvetica', 'bold');
+        doc.text(String(r.grade ?? '-'), 175, y);
+        doc.setFont('helvetica', 'normal');
+        y += 6;
+        if (y > 270) { doc.addPage(); y = 20; }
+      });
+      y += 5;
+    });
 
-          <div class="summary">
-            <div><strong>Courses</strong><br />${studentResults.length}</div>
-            <div><strong>GPA</strong><br />${transcriptGpa}</div>
-            <div><strong>Admission Start</strong><br />${escapeHtml(formatSemesterDate(semesterSettings.admissionStart))}</div>
-          </div>
-
-          <div class="card">
-            <h3>Results</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Course</th>
-                  <th style="text-align:center;">Midterm</th>
-                  <th style="text-align:center;">Final</th>
-                  <th style="text-align:center;">Grade</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows || `<tr><td colspan="4">No results available yet.</td></tr>`}
-              </tbody>
-            </table>
-          </div>
-        </body>
-      </html>`;
-
-    const blob = new Blob([transcriptHtml], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${studentName.replace(/\s+/g, "_")}_transcript.html`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    doc.setFontSize(8); doc.setFont('helvetica', 'italic');
+    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 105, 287, { align: 'center' });
+    doc.save(`${studentName.replace(/\s+/g, '_')}_transcript.pdf`);
   };
 
   // Auth Screen
@@ -493,13 +598,10 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                         type={showPassword ? "text" : "password"}
                         value={authForm.password}
                         onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, "").slice(0, 4);
-                          setAuthForm({ ...authForm, password: val });
+                          setAuthForm({ ...authForm, password: e.target.value });
                         }}
                         className={`${inputClass} pr-10`}
                         placeholder="Enter your password"
-                        maxLength={4}
-                        inputMode="numeric"
                       />
                       <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                         {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -525,87 +627,27 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
               </>
             ) : (
               <>
-                <h2 className="font-heading text-xl font-bold text-foreground mb-1">Reset Password</h2>
+                <h2 className="font-heading text-xl font-bold text-foreground mb-1">Forgot Password</h2>
                 <p className="text-sm text-muted-foreground mb-6">
-                  {resetStep === "request" && "Enter your registered phone number to receive a reset code"}
-                  {resetStep === "verify" && `Enter the code sent to your phone (expires in ${resetTimer}s)`}
-                  {resetStep === "reset" && "Set your new password"}
+                  Enter your registered phone number. A temporary password will be sent to your email.
                 </p>
-
-                {resetStep === "request" && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-foreground block mb-1.5">Phone Number</label>
-                      <div className="relative">
-                        <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <input value={forgotPhone} onChange={(e) => setForgotPhone(e.target.value)} className={`${inputClass} pl-10`} placeholder="+233 XX XXX XXXX" type="tel" />
-                      </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-foreground block mb-1.5">Phone Number</label>
+                    <div className="relative">
+                      <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <input value={forgotPhone} onChange={(e) => setForgotPhone(e.target.value)} className={`${inputClass} pl-10`} placeholder="+233 XX XXX XXXX" type="tel" />
                     </div>
-                    <Button variant="gold" className="w-full" onClick={handleForgotRequest}>
-                      Send Reset Code
-                    </Button>
                   </div>
-                )}
-
-                {resetStep === "verify" && (
-                  <div className="space-y-4">
-                    <div className="text-center">
-                      <div className="inline-flex items-center gap-2 bg-accent/10 text-accent px-4 py-2 rounded-full text-sm font-semibold">
-                        <Clock size={16} />
-                        {resetTimer}s remaining
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-foreground block mb-1.5">Reset Code</label>
-                      <input
-                        value={resetCode}
-                        onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                        className={inputClass}
-                        placeholder="Enter 4-digit code"
-                        maxLength={4}
-                        inputMode="numeric"
-                      />
-                    </div>
-                    <Button variant="gold" className="w-full" onClick={handleVerifyCode} disabled={resetTimer <= 0}>
-                      Verify Code
-                    </Button>
-                  </div>
-                )}
-
-                {resetStep === "reset" && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium text-foreground block mb-1.5">New Password</label>
-                      <input
-                        type="password"
-                        value={newPin}
-                        onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                        className={inputClass}
-                        placeholder="Enter new password"
-                        maxLength={4}
-                        inputMode="numeric"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-foreground block mb-1.5">Confirm New Password</label>
-                      <input
-                        type="password"
-                        value={confirmNewPin}
-                        onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                        className={inputClass}
-                        placeholder="Confirm new password"
-                        maxLength={4}
-                        inputMode="numeric"
-                      />
-                    </div>
-                    <Button variant="gold" className="w-full" onClick={handleResetPassword}>
-                      Reset Password
-                    </Button>
-                  </div>
-                )}
-
+                  <Button variant="gold" className="w-full" onClick={handleForgotRequest}>
+                    Send Temporary Password
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Use the temporary password to log in, then change it from inside your portal.
+                  </p>
+                </div>
                 <div className="text-center mt-4">
-                  <button onClick={() => { setForgotMode(false); setResetStep("request"); setResetTimer(0); }} className="text-sm text-primary font-semibold hover:underline">
+                  <button onClick={() => { setForgotMode(false); setResetStep("request"); }} className="text-sm text-primary font-semibold hover:underline">
                     ← Back to Login
                   </button>
                 </div>
@@ -665,7 +707,8 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
             { key: "courses", label: "My Courses", icon: BookOpen },
             { key: "assessments", label: "Assessments", icon: ClipboardList },
             { key: "results", label: "Results", icon: Award },
-            { key: "notifications", label: "Notifications", icon: Bell },
+            { key: "notifications", label: "Notifications", icon: Bell, badge: portalNotifications.filter((n: any) => !n.read).length },
+            { key: "timetable", label: "Timetable", icon: Clock },
             { key: "security", label: "Change Password", icon: KeyRound },
           ].map((tab) => (
             <button
@@ -677,6 +720,11 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
             >
               <tab.icon size={16} />
               {tab.label}
+              {(tab as any).badge > 0 && (
+                <span className="bg-destructive text-destructive-foreground text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                  {(tab as any).badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -752,6 +800,12 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                   <div className="min-w-0">
                     <h4 className="font-heading text-base font-semibold text-foreground truncate">{course.title}</h4>
                     <p className="text-sm text-muted-foreground mt-0.5">{course.semester}</p>
+                    {course.teacherName && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        👤 {course.teacherName}
+                        {course.teacherEmail && <span> · {course.teacherEmail}</span>}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <Button
@@ -791,8 +845,17 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                   <ClipboardList size={22} />
                 </div>
                 <div>
-                  <h3 className="font-heading text-lg font-semibold text-foreground">Your Assessments</h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">Assessments and results posted by your staff. View only — your instructor handles submissions and grading.</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-heading text-lg font-semibold text-foreground">Your Assessments</h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">Assessments and results posted by your staff.</p>
+                    </div>
+                    {studentExams.length > 0 && (
+                      <Button variant="outline" onClick={downloadExamTimetable} className="gap-2 flex-shrink-0">
+                        <FileText size={14} /> Download Exam Schedule
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -825,56 +888,57 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                 )}
               </div>
 
-              {studentAssessments.filter((a) => a.type === "Exam").length === 0 ? (
+              {studentExams.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border p-6 text-center text-muted-foreground">
-                  No exams have been uploaded yet.
+                  No exams scheduled yet.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {studentAssessments.filter((a) => a.type === "Exam").map((exam) => {
-                    const examQuestions = parseExamQuestions(exam.questionsText || exam.questions || "");
-                    const examLink = exam.examLink || exam.exam_link || exam.url || exam.link || "";
-                    const examSchedule = formatExamDateList(exam.examDates || exam.exam_dates || exam.dates || exam.posted);
+                  {studentExams.map((exam: any) => {
+                    const cd = examCountdowns[exam.id];
+                    const isActive = cd?.status === 'active';
+                    const isClosed = cd?.status === 'closed';
+                    const isUpcoming = cd?.status === 'upcoming';
                     return (
-                      <div key={exam.id || exam.title} className="rounded-xl border border-border p-5">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div key={exam.id} className={`rounded-xl border p-5 ${isActive ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="font-medium text-foreground truncate">{exam.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{exam.course} · {exam.duration || "60"} mins · {exam.status}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5 inline-flex items-center gap-1"><Clock size={12} /> Exam schedule: {examSchedule}</p>
-                            {examLink && <p className="text-xs text-muted-foreground mt-0.5 truncate">Link: {examLink}</p>}
+                            <p className="font-medium text-foreground">{exam.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">{exam.course} · {exam.duration || 60} mins{exam.num_questions ? ` · ${exam.num_questions} questions` : ''}</p>
+                            {exam.instructions && <p className="text-xs text-muted-foreground mt-0.5">{exam.instructions}</p>}
+                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                              <Clock size={12} />
+                              {exam.start_time ? new Date(exam.start_time).toLocaleString() : ''} — {exam.end_time ? new Date(exam.end_time).toLocaleString() : ''}
+                            </p>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-semibold px-3 py-1 rounded-full ${exam.status === "Posted" ? "bg-primary/10 text-primary" : "bg-secondary/10 text-secondary"}`}>
-                              {exam.status}
-                            </span>
-                            {examLink ? (
-                              <a
-                                href={examLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-colors ${exam.status === "Posted" ? "bg-primary text-primary-foreground hover:bg-primary/90" : "pointer-events-none bg-muted text-muted-foreground"}`}
-                              >
-                                Start Exam
-                              </a>
-                            ) : (
-                              <Button
-                                variant="gold"
-                                onClick={() => {
-                                  setSelectedExam(exam);
-                                  setExamAnswers({});
-                                  setExamScore(null);
-                                }}
-                                disabled={exam.status !== "Posted"}
-                              >
-                                Take Exam
-                              </Button>
+                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                            {isClosed && (
+                              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-destructive/10 text-destructive">Exam Closed</span>
+                            )}
+                            {isActive && (
+                              <>
+                                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-primary/10 text-primary">🟢 Active Now</span>
+                                {exam.exam_link && (
+                                  <a href={exam.exam_link} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
+                                    Start Exam →
+                                  </a>
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                  Ends in: {Math.floor((cd.timeLeft || 0) / 60)}m {(cd.timeLeft || 0) % 60}s
+                                </p>
+                              </>
+                            )}
+                            {isUpcoming && cd && (
+                              <>
+                                <span className="text-xs font-semibold px-3 py-1 rounded-full bg-secondary/10 text-secondary">Upcoming</span>
+                                <p className="text-xs text-muted-foreground text-right">
+                                  Starts in: {cd.days}d {cd.hours}h {cd.minutes}m {cd.seconds}s
+                                </p>
+                              </>
                             )}
                           </div>
                         </div>
-                        {examQuestions.length > 0 && (
-                          <p className="mt-3 text-xs text-muted-foreground">Contains {examQuestions.length} questions</p>
-                        )}
                       </div>
                     );
                   })}
@@ -1040,29 +1104,42 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                   Your results are not available yet. You will be notified once your grades are out.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/50">
-                        <th className="text-left p-4 font-semibold text-foreground">Course</th>
-                        <th className="text-center p-4 font-semibold text-foreground">Midterm</th>
-                        <th className="text-center p-4 font-semibold text-foreground">Final</th>
-                        <th className="text-center p-4 font-semibold text-foreground">Grade</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {studentResults.map((r) => (
-                        <tr key={`${r.course}-${r.grade}-${r.midterm}`} className="border-b border-border last:border-0">
-                          <td className="p-4 text-foreground">{r.course}</td>
-                          <td className="p-4 text-center text-muted-foreground">{r.midterm}</td>
-                          <td className="p-4 text-center text-muted-foreground">{r.final}</td>
-                          <td className="p-4 text-center">
-                            <span className="bg-primary/10 text-primary font-bold px-3 py-1 rounded-full text-xs">{r.grade}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-4">
+                  {/* Group results by semester */}
+                  {[...new Set(studentResults.map((r: any) => r.semester || 'Current Semester'))].map(sem => (
+                    <div key={sem} className="bg-card rounded-xl border border-border overflow-hidden">
+                      <div className="bg-primary/5 border-b border-border px-4 py-3 flex items-center justify-between">
+                        <h4 className="font-heading text-sm font-bold text-primary">{sem}</h4>
+                        <span className="text-xs text-muted-foreground">
+                          GPA: {gpaData.gpa[sem] ? gpaData.gpa[sem].toFixed(2) : '—'}
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border bg-muted/50">
+                              <th className="text-left p-4 font-semibold text-foreground">Course</th>
+                              <th className="text-center p-4 font-semibold text-foreground">Midterm</th>
+                              <th className="text-center p-4 font-semibold text-foreground">Final</th>
+                              <th className="text-center p-4 font-semibold text-foreground">Grade</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {studentResults.filter((r: any) => (r.semester || 'Current Semester') === sem).map((r: any) => (
+                              <tr key={`${r.course}-${r.grade}-${r.midterm}`} className="border-b border-border last:border-0">
+                                <td className="p-4 text-foreground">{r.course}</td>
+                                <td className="p-4 text-center text-muted-foreground">{r.midterm}</td>
+                                <td className="p-4 text-center text-muted-foreground">{r.final}</td>
+                                <td className="p-4 text-center">
+                                  <span className="bg-primary/10 text-primary font-bold px-3 py-1 rounded-full text-xs">{r.grade}</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -1071,15 +1148,121 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
         {activeTab === "notifications" && (
           <div className="space-y-3">
-            {portalNotifications.map((n, i) => (
-              <div key={i} className="bg-card rounded-xl border border-border p-5 flex items-start gap-3">
-                <Bell size={18} className="text-accent mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-sm text-foreground">{n.text}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{n.time}</p>
-                </div>
+            {/* Header with mark all read */}
+            {portalNotifications.length > 0 && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {portalNotifications.filter(n => !n.read).length} unread
+                </p>
+                <button
+                  onClick={async () => {
+                    const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
+                    const token = s?.token;
+                    try {
+                      await fetch(apiUrl('/api/student/notifications/read-all'), {
+                        method: 'PUT',
+                        headers: { Authorization: 'Bearer ' + token },
+                      });
+                      setPortalNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                    } catch(e) { console.error(e); }
+                  }}
+                  className="text-xs text-primary font-semibold hover:underline"
+                >
+                  Mark all as read
+                </button>
               </div>
-            ))}
+            )}
+
+            {portalNotifications.length === 0 ? (
+              <div className="bg-card rounded-xl border border-border p-8 text-center text-muted-foreground">
+                No notifications yet.
+              </div>
+            ) : (
+              portalNotifications.map((n: any) => (
+                <div
+                  key={n.id}
+                  onClick={async () => {
+                    if (!n.read) {
+                      const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
+                      const token = s?.token;
+                      try {
+                        await fetch(apiUrl(`/api/student/notifications/${n.id}/read`), {
+                          method: 'PUT',
+                          headers: { Authorization: 'Bearer ' + token },
+                        });
+                        setPortalNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+                      } catch(e) { console.error(e); }
+                    }
+                  }}
+                  className={`bg-card rounded-xl border p-5 flex items-start gap-3 cursor-pointer transition-colors ${!n.read ? 'border-primary/30 bg-primary/5' : 'border-border'}`}
+                >
+                  <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${!n.read ? 'bg-primary' : 'bg-transparent'}`} />
+                  <Bell size={18} className={`mt-0.5 flex-shrink-0 ${!n.read ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <div className="min-w-0 flex-1">
+                    {n.title && <p className="text-sm font-semibold text-foreground">{n.title}</p>}
+                    <p className="text-sm text-foreground mt-0.5">{n.message || n.text}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {n.created_at ? new Date(n.created_at).toLocaleString() : n.time}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeTab === "timetable" && (
+          <div className="space-y-4">
+            <div className="bg-card rounded-xl border border-border p-5 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-heading text-lg font-semibold text-foreground mb-1">Class Timetable</h3>
+                <p className="text-sm text-muted-foreground">Weekly schedule for your enrolled courses.</p>
+              </div>
+              {studentSchedule.length > 0 && (
+                <Button variant="outline" onClick={downloadClassTimetable} className="gap-2 flex-shrink-0">
+                  <FileText size={14} /> Download
+                </Button>
+              )}
+            </div>
+            {studentSchedule.length === 0 ? (
+              <div className="bg-card rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">
+                No class schedule set yet. Check back later.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day => {
+                  const dayClasses = studentSchedule.filter((s: any) => s.day_of_week === day);
+                  if (dayClasses.length === 0) return null;
+                  return (
+                    <div key={day} className="bg-card rounded-xl border border-border overflow-hidden">
+                      <div className="bg-primary/5 border-b border-border px-5 py-3">
+                        <h4 className="font-heading text-sm font-bold text-primary">{day}</h4>
+                      </div>
+                      {dayClasses.map((s: any) => (
+                        <div key={s.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border last:border-0">
+                          <div>
+                            <p className="font-medium text-foreground">{s.course}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                              <Clock size={12} /> {s.start_time} — {s.end_time}
+                            </p>
+                            {s.teacher_name && <p className="text-xs text-muted-foreground mt-0.5">👤 {s.teacher_name}</p>}
+                            {s.notes && <p className="text-xs text-muted-foreground mt-0.5">{s.notes}</p>}
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">{s.venue}</span>
+                            {s.platform && <span className="text-xs text-muted-foreground">{s.platform}</span>}
+                            {s.meeting_link && (
+                              <a href={s.meeting_link} target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-primary underline">Join Class</a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

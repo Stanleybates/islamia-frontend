@@ -33,7 +33,26 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadingTimer = window.setTimeout(() => setIsLoading(false), 500);
+    const loadingTimer = window.setTimeout(() => {
+      setIsLoading(false);
+      // Auto-redirect returning users on homepage
+      const path = window.location.pathname;
+      if (path === '/') {
+        const studentSession = localStorage.getItem('ami_student_session');
+        const adminSession = localStorage.getItem('ami_admin_session');
+        if (studentSession) {
+          try {
+            const s = JSON.parse(studentSession);
+            if (s?.token) window.location.href = '/student';
+          } catch(e) {}
+        } else if (adminSession) {
+          try {
+            const a = JSON.parse(adminSession);
+            if (a?.token) window.location.href = '/admin';
+          } catch(e) {}
+        }
+      }
+    }, 500);
     return () => window.clearTimeout(loadingTimer);
   }, []);
 
