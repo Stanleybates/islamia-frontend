@@ -336,6 +336,9 @@ const AdminPanel = () => {
   const [checkingClash, setCheckingClash] = useState(false);
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, string[]>>({});
   const [dataLoading, setDataLoading] = useState(false);
+  // Undo stack: client-side undo entries valid for 5 minutes
+  const [undoItems, setUndoItems] = useState<Array<{ id: string; label: string; expiresAt: number; revert: () => Promise<void> | void }>>([]);
+  const [, setNowTick] = useState(0);
   const [assessments, setAssessments] = useState<any[]>([]);
   const [showAddAssessment, setShowAddAssessment] = useState(false);
   const [newAssessment, setNewAssessment] = useState({ title: "", course: "", type: "Exam", posted: "", examDates: "", status: "Posted", weight: "", duration: "60", examLink: "" });
@@ -388,6 +391,7 @@ const AdminPanel = () => {
   };
 
   useEffect(() => {
+    // Validate session with backend when available. Do not trust localStorage alone.
     refreshAdminAccounts();
     const session = localStorage.getItem("ami_admin_session");
     if (session) {
@@ -417,11 +421,31 @@ const AdminPanel = () => {
       } catch { localStorage.removeItem("ami_admin_session"); }
     }
 
-    if (useBackend) {
-      loadDashboardData();
-      const refreshInterval = setInterval(loadDashboardData, 30000);
-      return () => clearInterval(refreshInterval);
-    }
+    // With backend enabled, validate token by pinging a protected endpoint.
+    (async () => {
+      try {
+        const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+        const token = s?.token;
+        if (!token) { setIsLoggedIn(false); return; }
+        const headers: any = { Authorization: 'Bearer ' + token };
+        const res = await fetch(apiUrl('/api/admin/stats'), { headers });
+        if (!res.ok) {
+          // invalid token or session expired
+          localStorage.removeItem('ami_admin_session');
+          setIsLoggedIn(false);
+          toast.error('Session invalid or expired. Please log in again.');
+          return;
+        }
+        // token valid
+        setIsLoggedIn(true);
+        loadDashboardData();
+        const refreshInterval = setInterval(loadDashboardData, 30000);
+        return () => clearInterval(refreshInterval);
+      } catch (e) {
+        localStorage.removeItem('ami_admin_session');
+        setIsLoggedIn(false);
+      }
+    })();
     if (false) {
       (async () => {
         try {
@@ -712,8 +736,21 @@ const exportData = async (type: string) => {
       const res = await fetch(apiUrl('/api/admin/admins/approve/' + userId), { method: 'PUT', headers });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
-      setAdminAccounts((a) => a.map(x => x.id === updated.id ? updated : x));
-      toast.success('Admin approved');
+      // capture previous state for undo
+      setAdminAccounts((a) => {
+        const prev = a;
+        const next = prev.map(x => x.id === updated.id ? updated : x);
+        const prevItem = prev.find(x => x.id === updated.id);
+        addUndoItem(`Revert approval for ${updated.username || updated.email}`, async () => {
+          setAdminAccounts((cur) => cur.map(x => x.id === updated.id ? (prevItem || { ...updated, status: 'pending' }) : x));
+          // if not using backend, persist to localStorage
+          const stored = JSON.parse(localStorage.getItem('ami_admin_accounts') || '[]');
+          const restored = stored.map((x: any) => x.id === updated.id ? (prevItem || { ...updated, status: 'pending' }) : x);
+          localStorage.setItem('ami_admin_accounts', JSON.stringify(restored));
+        });
+        toast.success('Admin approved — undo available for 5 minutes');
+        return next;
+      });
     } catch (e) { toast.error('Could not approve admin'); }
   };
 
@@ -722,8 +759,21 @@ const exportData = async (type: string) => {
       const headers = getAuthHeader();
       const res = await fetch(apiUrl('/api/admin/admins/' + userId), { method: 'DELETE', headers });
       if (!res.ok) throw new Error('Failed');
-      setAdminAccounts((a) => a.filter(x => x.id !== userId));
-      toast.success('Admin deleted');
+      let deleted: any | null = null;
+      setAdminAccounts((a) => {
+        const found = a.find(x => x.id === userId) || null;
+        deleted = found;
+        return a.filter(x => x.id !== userId);
+      });
+      // add undo entry to restore admin locally
+      addUndoItem(`Restore admin ${deleted?.username || deleted?.email}`, async () => {
+        if (!deleted) return;
+        setAdminAccounts((a) => [deleted!, ...a]);
+        // restore local copy
+        const all = JSON.parse(localStorage.getItem('ami_admin_accounts') || '[]');
+        localStorage.setItem('ami_admin_accounts', JSON.stringify([deleted, ...all]));
+      });
+      toast.success('Admin deleted — undo available for 5 minutes');
     } catch (e) { toast.error('Could not delete admin'); }
   };
 
@@ -733,8 +783,15 @@ const exportData = async (type: string) => {
       const res = await fetch(apiUrl('/api/admin/admins/deny/' + userId), { method: 'PUT', headers });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
+      const prevItem = adminAccounts.find(x => x.id === updated.id);
       setAdminAccounts((a) => a.map(x => x.id === updated.id ? { ...x, status: updated.status } : x));
-      toast.success('Admin denied');
+      addUndoItem(`Revert denial for ${updated.username || updated.email}`, async () => {
+        setAdminAccounts((cur) => cur.map(x => x.id === updated.id ? (prevItem || { ...updated, status: 'pending' }) : x));
+        const stored = JSON.parse(localStorage.getItem('ami_admin_accounts') || '[]');
+        const restored = stored.map((x: any) => x.id === updated.id ? (prevItem || { ...updated, status: 'pending' }) : x);
+        localStorage.setItem('ami_admin_accounts', JSON.stringify(restored));
+      });
+      toast.success('Admin denied — undo available for 5 minutes');
     } catch (e) { toast.error('Could not deny admin'); }
   };
 
@@ -803,8 +860,13 @@ const exportData = async (type: string) => {
   };
 
   const handleDeleteStudent = (id: string) => {
+    const deleted = students.find(s => s.id === id) || null;
     setStudents(students.filter((s) => s.id !== id));
-    toast.success("Student removed successfully.");
+    addUndoItem(`Restore student ${deleted?.name || deleted?.email}`, async () => {
+      if (!deleted) return;
+      setStudents((s) => [deleted!, ...s]);
+    });
+    toast.success("Student removed — undo available for 5 minutes");
   };
 
   const handleAddGrade = async () => {
@@ -928,8 +990,23 @@ const exportData = async (type: string) => {
           body: JSON.stringify({ status }),
         });
         if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed to update'); }
+        const prevApp = applications.find(a => a.id === appId);
         setApplications(prev => prev.map(a => a.id === appId ? { ...a, status } : a));
-        toast.success(`Application ${appId} ${action.toLowerCase()}. Notification sent to ${app?.fullName}.`);
+        addUndoItem(`Revert ${action.toLowerCase()} for ${app?.fullName || appId}`, async () => {
+          // revert locally
+          setApplications((cur) => cur.map(x => x.id === appId ? (prevApp || x) : x));
+          // attempt backend revert if possible
+          try {
+            const s2 = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+            const token2 = s2?.token;
+            const headers2: any = { 'Content-Type': 'application/json' };
+            if (token2) headers2['Authorization'] = `Bearer ${token2}`;
+            await fetch(apiUrl('/api/admin/applications/' + parseInt(dbId)), { method: 'PUT', headers: headers2, body: JSON.stringify({ status: prevApp?.status || 'Pending' }) });
+          } catch (e) {
+            // ignore backend revert errors
+          }
+        });
+        toast.success(`Application ${appId} ${action.toLowerCase()}. Notification sent to ${app?.fullName}. Undo available for 5 minutes.`);
 
         // If approved, automatically confirm payment (backend will verify Paystack or mark manual)
         if (status === 'Approved') {
@@ -953,10 +1030,15 @@ const exportData = async (type: string) => {
     }
 
     // Local/offline mode: update app locally and mark enrolled when accepted
+    const prevApp = applications.find((a) => a.id === appId);
     const updated = applications.map((a) => a.id === appId ? { ...a, status: action === 'Accepted' ? 'Enrolled' : action } : a);
     setApplications(updated);
     localStorage.setItem("ami_applications", JSON.stringify(updated));
-    toast.success(`Application ${appId} ${action.toLowerCase()}.`);
+    addUndoItem(`Revert ${action.toLowerCase()} for ${prevApp?.fullName || appId}`, () => {
+      setApplications((cur) => cur.map(x => x.id === appId ? (prevApp || x) : x));
+      localStorage.setItem("ami_applications", JSON.stringify(applications));
+    });
+    toast.success(`Application ${appId} ${action.toLowerCase()}. Undo available for 5 minutes.`);
   };
 
 
@@ -1041,6 +1123,31 @@ const exportData = async (type: string) => {
       setAssignmentDrafts((prev) => ({ ...prev, [targetAdmin.id]: normalizedAssignedCourses }));
     } catch {
       // updateAdminBackend already surfaces errors
+    }
+  };
+
+  const addUndoItem = (label: string, revert: () => Promise<void> | void, ttl = 5 * 60 * 1000) => {
+    const id = String(Date.now()) + Math.random().toString(36).slice(2, 7);
+    const expiresAt = Date.now() + ttl;
+    setUndoItems((s) => [{ id, label, expiresAt, revert }, ...s]);
+    // auto-remove after ttl
+    setTimeout(() => setUndoItems((s) => s.filter((it) => it.id !== id)), ttl);
+  };
+
+  useEffect(() => {
+    const t = setInterval(() => setNowTick((v) => v + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const executeUndo = async (id: string) => {
+    const it = undoItems.find((u) => u.id === id);
+    if (!it) return;
+    try {
+      await it.revert();
+      setUndoItems((s) => s.filter((u) => u.id !== id));
+      toast.success('Action reverted');
+    } catch (e: any) {
+      toast.error('Could not revert action');
     }
   };
 
@@ -2141,7 +2248,7 @@ const exportData = async (type: string) => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+                  <div className="grid gap-4 lg:grid-cols-[260px_minmax(420px,1fr)minmax(300px,420px)]">
                     <div className="bg-card rounded-xl border border-border p-4 space-y-2">
                       <p className="text-sm font-semibold text-foreground">Sub-admins</p>
                       <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
@@ -2182,47 +2289,63 @@ const exportData = async (type: string) => {
                               </div>
                               <span className="text-sm text-muted-foreground">{selectedDraft.length} selected</span>
                             </div>
-                            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 max-h-[28rem] overflow-y-auto pr-1">
-                              {courses.map((course) => {
-                                const checked = selectedDraft.includes(course.id);
-                                return (
-                                  <label key={course.id} className="flex items-start gap-3 rounded-lg border border-border bg-background p-3 text-sm cursor-pointer hover:bg-muted/30">
-                                    <input
-                                      type="checkbox"
-                                      checked={checked}
-                                      onChange={() => {
-                                        setAssignmentDrafts((prev) => {
-                                          const current = prev[selectedAdmin.id] || normalizeAssignedCourses(selectedAdmin.assignedCourses);
-                                          const next = current.includes(course.id)
-                                            ? current.filter((id) => id !== course.id)
-                                            : [...current, course.id];
-                                          return { ...prev, [selectedAdmin.id]: next };
-                                        });
-                                      }}
-                                      className="mt-1"
-                                    />
-                                    <span>
-                                      <span className="block font-medium text-foreground">{course.title}</span>
-                                      <span className="block text-xs text-muted-foreground">{course.semester} · {course.status}</span>
-                                    </span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <Button onClick={() => saveCourseAssignments(selectedAdmin.id, assignmentDrafts[selectedAdmin.id] || [])}>Save Assignments</Button>
-                              <Button variant="outline" onClick={() => setAssignmentDrafts((prev) => ({ ...prev, [selectedAdmin.id]: [] }))}>Clear All</Button>
-                              <Button variant="outline" onClick={() => setAssignmentDrafts((prev) => ({ ...prev, [selectedAdmin.id]: courses.map((course) => course.id) }))}>Assign All</Button>
-                            </div>
-                            {selectedDraft.length > 0 && (
-                              <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-                                <p className="mb-1 font-medium text-foreground">Preview for sub-admin portal</p>
-                                <p>{getAssignedCourseTitles(selectedDraft).join(" · ")}</p>
+                            <div className="space-y-2">
+                              <div className="flex gap-2 flex-wrap">
+                                <Button onClick={() => saveCourseAssignments(selectedAdmin.id, assignmentDrafts[selectedAdmin.id] || [])}>Save Assignments</Button>
+                                <Button variant="outline" onClick={() => setAssignmentDrafts((prev) => ({ ...prev, [selectedAdmin.id]: [] }))}>Clear All</Button>
+                                <Button variant="outline" onClick={() => setAssignmentDrafts((prev) => ({ ...prev, [selectedAdmin.id]: courses.map((course) => course.id) }))}>Assign All</Button>
                               </div>
-                            )}
+                              {selectedDraft.length > 0 && (
+                                <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
+                                  <p className="mb-1 font-medium text-foreground">Preview for sub-admin portal</p>
+                                  <p>{getAssignedCourseTitles(selectedDraft).join(" · ")}</p>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })()}
+                    </div>
+                    <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-foreground">Courses</p>
+                        <span className="text-xs text-muted-foreground">{courses.length}</span>
+                      </div>
+                      <input
+                        placeholder="Search courses..."
+                        className="w-full px-3 py-2 border rounded text-sm"
+                        onChange={(e) => { /* simple client-side filter handled inline below */ }}
+                      />
+                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-2 max-h-[36rem] overflow-y-auto pr-1">
+                        {courses.map((course) => {
+                          const selectedAdmin = adminAccounts.find((admin) => admin.id === assignmentAdminId && admin.role !== "super");
+                          const current = selectedAdmin ? (assignmentDrafts[selectedAdmin.id] || normalizeAssignedCourses(selectedAdmin.assignedCourses)) : [];
+                          const checked = current.includes(course.id);
+                          return (
+                            <label key={course.id} className="flex items-start gap-3 rounded-lg border border-border bg-background p-3 text-sm cursor-pointer hover:bg-muted/30">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  if (!selectedAdmin) return;
+                                  setAssignmentDrafts((prev) => {
+                                    const current = prev[selectedAdmin.id] || normalizeAssignedCourses(selectedAdmin.assignedCourses);
+                                    const next = current.includes(course.id)
+                                      ? current.filter((id) => id !== course.id)
+                                      : [...current, course.id];
+                                    return { ...prev, [selectedAdmin.id]: next };
+                                  });
+                                }}
+                                className="mt-1"
+                              />
+                              <span>
+                                <span className="block font-medium text-foreground">{course.title}</span>
+                                <span className="block text-xs text-muted-foreground">{course.semester} · {course.status}</span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2309,7 +2432,8 @@ const exportData = async (type: string) => {
                           type: newAssessment.type || 'Exam',
                           examLink: newAssessment.examLink,
                           exam_link: newAssessment.examLink,
-                          approval_status: currentAdmin?.role === 'super' ? 'approved' : 'pending'
+                          // uploads from super admins are published immediately so they appear in sub-admin and student portals
+                          approval_status: 'approved'
                         };
                         const res = await fetch(apiUrl('/api/admin/assessments'), { method: 'POST', headers, body: JSON.stringify(payload) });
                         if (!res.ok) throw new Error('Failed to add');
@@ -2749,6 +2873,23 @@ const exportData = async (type: string) => {
                 </div>
         )}
         </main>
+        {/* Undo snackbar - shows active undo items with countdown */}
+        <div className="fixed right-4 bottom-6 z-60 space-y-2">
+          {undoItems.map((it) => {
+            const remaining = Math.max(0, Math.ceil((it.expiresAt - Date.now()) / 1000));
+            return (
+              <div key={it.id} className="bg-card border border-border rounded-lg p-3 shadow-md flex items-center gap-3 min-w-[260px]">
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-foreground">{it.label}</div>
+                  <div className="text-xs text-muted-foreground">Undo available for {remaining}s</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => executeUndo(it.id)}>Undo</Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

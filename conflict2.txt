@@ -1,0 +1,56 @@
+      if (statsRes) {
+        setStats(statsRes);
+        setPendingGradeCount(Number(statsRes.pendingGrades ?? 0));
+      }
+    } catch (e) { throw e; }
+  };
+
+  useEffect(() => {
+    // Validate session with backend when available. Do not trust localStorage alone.
+    refreshAdminAccounts();
+    const session = localStorage.getItem("ami_admin_session");
+<<<<<<< HEAD
+    if (session) {
+      try {
+        const s = JSON.parse(session);
+        if (!s?.token) { localStorage.removeItem("ami_admin_session"); return; }
+        // Verify token with backend
+        fetch(apiUrl('/api/admin/verify'), {
+          headers: { Authorization: 'Bearer ' + s.token }
+        }).then(res => {
+          if (!res.ok) {
+            localStorage.removeItem("ami_admin_session");
+            setIsLoggedIn(false);
+          } else {
+            res.json().then(verified => {
+              const merged = { ...s, ...verified };
+              localStorage.setItem("ami_admin_session", JSON.stringify(merged));
+              setCurrentAdmin(merged);
+              setIsLoggedIn(true);
+            });
+          }
+        }).catch(() => {
+          // Backend unreachable — reject session for security
+          localStorage.removeItem("ami_admin_session");
+          setIsLoggedIn(false);
+        });
+      } catch { localStorage.removeItem("ami_admin_session"); }
+=======
+    if (!session) {
+      setIsLoggedIn(false);
+      return;
+    }
+    try {
+      const s = JSON.parse(session);
+      setCurrentAdmin(s);
+    } catch {}
+
+    if (!useBackend) {
+      // Backend auth not enabled: block access and clear any local session to avoid bypass.
+      localStorage.removeItem('ami_admin_session');
+      setIsLoggedIn(false);
+      toast.error('Admin access requires backend authentication. Enable server auth to continue.');
+      return;
+>>>>>>> teammate/main
+    }
+
