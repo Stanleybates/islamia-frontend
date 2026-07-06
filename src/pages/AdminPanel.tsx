@@ -270,7 +270,14 @@ const ChangePasswordForm = () => {
 
 const AdminPanel = () => {
   const useBackend = import.meta.env.VITE_USE_BACKEND === "true";
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Always verify with backend first
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem("ami_admin_session") || "{}");
+      if (!s?.token) return false;
+      const payload = JSON.parse(atob(s.token.split('.')[1]));
+      return !(payload.exp && payload.exp * 1000 < Date.now());
+    } catch { return false; }
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [forgotPhone, setForgotPhone] = useState("");
   const [isLocked, setIsLocked] = useState(false);
