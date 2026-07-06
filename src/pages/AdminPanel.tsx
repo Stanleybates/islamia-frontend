@@ -292,11 +292,11 @@ const AdminPanel = () => {
   const [forgotEmail, setForgotEmail] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [students, setStudents] = useState<Student[]>(initialStudents);
-  const [courses, setCourses] = useState<Course[]>(initialCourses);
-  const [paymentsState, setPaymentsState] = useState<Payment[]>(initialPayments);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [paymentsState, setPaymentsState] = useState<Payment[]>([]);
   const [stats, setStats] = useState<any>(null);
-  const [grades, setGrades] = useState<Grade[]>(initialGrades);
+  const [grades, setGrades] = useState<Grade[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [applications, setApplications] = useState<Application[]>([]);
   const [showAddStudent, setShowAddStudent] = useState(false);
@@ -312,12 +312,7 @@ const AdminPanel = () => {
   const [currentAdmin, setCurrentAdmin] = useState<any>(null);
   const [settings, setSettings] = useState({ name: "", contactNumber: "", email: "" });
   const [settingsSaving, setSettingsSaving] = useState(false);
-  const [staff, setStaff] = useState<Staff[]>(() => {
-    const stored = localStorage.getItem("ami_staff");
-    if (stored) try { return JSON.parse(stored); } catch {}
-    localStorage.setItem("ami_staff", JSON.stringify(defaultStaff));
-    return defaultStaff;
-  });
+  const [staff, setStaff] = useState<Staff[]>([]);
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [newStaff, setNewStaff] = useState({ name: "", course: "", contact: "", email: "", department: "" });
   const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
@@ -351,7 +346,7 @@ const AdminPanel = () => {
   const [newAssessment, setNewAssessment] = useState({ title: "", course: "", type: "Exam", posted: "", examDates: "", status: "Posted", weight: "", duration: "60", examLink: "" });
 
   const refreshAdminAccounts = () => {
-    setAdminAccounts(JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]"));
+    setAdminAccounts([]);
   };
 
   const loadDashboardData = async (retries = 2) => {
@@ -405,6 +400,12 @@ const AdminPanel = () => {
       try {
         const s = JSON.parse(session);
         if (!s?.token) { localStorage.removeItem("ami_admin_session"); return; }
+        // Check if browser was reopened (sessionStorage cleared on close)
+        if (!sessionStorage.getItem('ami_admin_active')) {
+          localStorage.removeItem("ami_admin_session");
+          setIsLoggedIn(false);
+          return;
+        }
         // Validate JWT locally
         const payload = JSON.parse(atob(s.token.split('.')[1]));
         if (payload.exp && payload.exp * 1000 < Date.now()) {
@@ -412,8 +413,37 @@ const AdminPanel = () => {
           setIsLoggedIn(false);
           return;
         }
-        setCurrentAdmin(s);
-        setIsLoggedIn(true);
+        // Fetch current admin's full profile including assigned_courses
+        fetch(apiUrl('/api/admin/verify'), {
+          headers: { Authorization: 'Bearer ' + s.token }
+        }).then(r => r.ok ? r.json() : null).then(verified => {
+          if (verified) {
+            // Get assigned courses from admin accounts list
+            fetch(apiUrl('/api/admin/admins'), {
+              headers: { Authorization: 'Bearer ' + s.token }
+            }).then(r => r.ok ? r.json() : null).then(adminsRes => {
+              const adminsList = adminsRes?.data || adminsRes || [];
+              const myAccount = adminsList.find((a: any) => a.id === verified.id || a.email === verified.email);
+              const merged = {
+                ...s,
+                ...verified,
+                assignedCourses: normalizeAssignedCourses(myAccount?.assigned_courses || myAccount?.assignedCourses || s.assignedCourses || [])
+              };
+              localStorage.setItem("ami_admin_session", JSON.stringify(merged));
+              setCurrentAdmin(merged);
+              setIsLoggedIn(true);
+            }).catch(() => {
+              setCurrentAdmin({ ...s, ...verified });
+              setIsLoggedIn(true);
+            });
+          } else {
+            localStorage.removeItem("ami_admin_session");
+            setIsLoggedIn(false);
+          }
+        }).catch(() => {
+          localStorage.removeItem("ami_admin_session");
+          setIsLoggedIn(false);
+        });
       } catch { localStorage.removeItem("ami_admin_session"); }
     }
 
@@ -515,10 +545,7 @@ if (studentsRes?.data) {
       return;
     }
 
-    const storedGrades = localStorage.getItem("ami_grades");
-    if (storedGrades) {
-      try { setGrades(JSON.parse(storedGrades)); } catch {}
-    }
+
   }, [isLoggedIn]);
 
   useEffect(() => {
@@ -564,7 +591,7 @@ if (studentsRes?.data) {
 
   useEffect(() => {
     if (!useBackend) {
-      localStorage.setItem("ami_grades", JSON.stringify(grades));
+
     }
     setPendingGradeCount(grades.filter((g) => g.status === "pending").length);
   }, [grades]);
@@ -615,7 +642,6 @@ if (studentsRes?.data) {
         setApplications(fromBackend);
       } catch (e) {
         console.error(e);
-        const localApps = JSON.parse(localStorage.getItem("ami_applications") || "[]");
         setApplications(localApps);
       }
     };
@@ -716,10 +742,7 @@ const exportData = async (type: string) => {
         const prevItem = prev.find(x => x.id === updated.id);
         addUndoItem(`Revert approval for ${updated.username || updated.email}`, async () => {
           setAdminAccounts((cur) => cur.map(x => x.id === updated.id ? (prevItem || { ...updated, status: 'pending' }) : x));
-          // if not using backend, persist to localStorage
-          const stored = JSON.parse(localStorage.getItem('ami_admin_accounts') || '[]');
-          const restored = stored.map((x: any) => x.id === updated.id ? (prevItem || { ...updated, status: 'pending' }) : x);
-          localStorage.setItem('ami_admin_accounts', JSON.stringify(restored));
+
         });
         toast.success('Admin approved — undo available for 5 minutes');
         return next;
@@ -743,8 +766,7 @@ const exportData = async (type: string) => {
         if (!deleted) return;
         setAdminAccounts((a) => [deleted!, ...a]);
         // restore local copy
-        const all = JSON.parse(localStorage.getItem('ami_admin_accounts') || '[]');
-        localStorage.setItem('ami_admin_accounts', JSON.stringify([deleted, ...all]));
+  
       });
       toast.success('Admin deleted — undo available for 5 minutes');
     } catch (e) { toast.error('Could not delete admin'); }
@@ -760,9 +782,7 @@ const exportData = async (type: string) => {
       setAdminAccounts((a) => a.map(x => x.id === updated.id ? { ...x, status: updated.status } : x));
       addUndoItem(`Revert denial for ${updated.username || updated.email}`, async () => {
         setAdminAccounts((cur) => cur.map(x => x.id === updated.id ? (prevItem || { ...updated, status: 'pending' }) : x));
-        const stored = JSON.parse(localStorage.getItem('ami_admin_accounts') || '[]');
-        const restored = stored.map((x: any) => x.id === updated.id ? (prevItem || { ...updated, status: 'pending' }) : x);
-        localStorage.setItem('ami_admin_accounts', JSON.stringify(restored));
+
       });
       toast.success('Admin denied — undo available for 5 minutes');
     } catch (e) { toast.error('Could not deny admin'); }
@@ -806,6 +826,7 @@ const exportData = async (type: string) => {
 
   const handleLogout = () => {
     localStorage.removeItem("ami_admin_session");
+    sessionStorage.removeItem('ami_admin_active');
     sessionStorage.removeItem('ami_welcomed');
     toast.success("You've been logged out. See you soon!");
     setTimeout(() => setIsLoggedIn(false), 800);
@@ -1006,10 +1027,8 @@ const exportData = async (type: string) => {
     const prevApp = applications.find((a) => a.id === appId);
     const updated = applications.map((a) => a.id === appId ? { ...a, status: action === 'Accepted' ? 'Enrolled' : action } : a);
     setApplications(updated);
-    localStorage.setItem("ami_applications", JSON.stringify(updated));
     addUndoItem(`Revert ${action.toLowerCase()} for ${prevApp?.fullName || appId}`, () => {
       setApplications((cur) => cur.map(x => x.id === appId ? (prevApp || x) : x));
-      localStorage.setItem("ami_applications", JSON.stringify(applications));
     });
     toast.success(`Application ${appId} ${action.toLowerCase()}. Undo available for 5 minutes.`);
   };
@@ -1082,9 +1101,6 @@ const exportData = async (type: string) => {
       if (useBackend) {
         await updateAdminBackend(targetAdmin.id, targetAdmin.role || "sub", targetAdmin.status || "pending", normalizedAssignedCourses);
       } else {
-        const all = JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]");
-        const updated = all.map((x: any) => x.email === targetAdmin.email ? { ...x, assignedCourses: normalizedAssignedCourses } : x);
-        localStorage.setItem("ami_admin_accounts", JSON.stringify(updated));
         refreshAdminAccounts();
         if (currentAdmin?.email === targetAdmin.email) {
           const mergedSession = { ...currentAdmin, assignedCourses: normalizedAssignedCourses };
@@ -1233,8 +1249,8 @@ const exportData = async (type: string) => {
                         { metric: "Total Enrollments", current: students.length, previous: Math.max(students.length - 2, 0), status: "up" },
                         { metric: "Active Courses", current: courses.filter(c => c.status === "Active").length, previous: Math.max(courses.filter(c => c.status === "Active").length - 1, 0), status: "up" },
                         { metric: "Pending Applications", current: pendingApps.length, previous: Math.max(pendingApps.length + 1, 1), status: pendingApps.length > 0 ? "warning" : "up" },
-                        { metric: "Completed Payments", current: (useBackend ? paymentsState : paymentsState).filter(p => p.status === "Completed").length, previous: Math.max((useBackend ? paymentsState : paymentsState).filter(p => p.status === "Completed").length - 1, 0), status: "up" },
-                        { metric: "Failed Payments", current: (useBackend ? paymentsState : paymentsState).filter(p => p.status === "Failed").length, previous: 2, status: (useBackend ? paymentsState : paymentsState).filter(p => p.status === "Failed").length > 0 ? "down" : "up" },
+                        { metric: "Completed Payments", current: paymentsState.filter(p => p.status === "Completed").length, previous: Math.max(paymentsState.filter(p => p.status === "Completed").length - 1, 0), status: "up" },
+                        { metric: "Failed Payments", current: paymentsState.filter(p => p.status === "Failed").length, previous: 2, status: paymentsState.filter(p => p.status === "Failed").length > 0 ? "down" : "up" },
                         { metric: "Average GPA", current: Number((students.reduce((a, s) => a + parseFloat(s.gpa), 0) / Math.max(students.length, 1)).toFixed(2)), previous: 3.5, status: "up" },
                         { metric: "Graduation Rate", current: 89, previous: 85, status: "up" },
                         { metric: "Student Retention", current: Math.round((students.filter(s => s.status === "Active").length / Math.max(students.length, 1)) * 100), previous: 75, status: "up" },
@@ -1287,7 +1303,7 @@ const exportData = async (type: string) => {
                 <div className="bg-card rounded-xl border border-border p-6">
                   <h3 className="font-heading text-lg font-semibold text-foreground mb-4">Recent Payments</h3>
                   <div className="space-y-3">
-                    {(useBackend ? paymentsState : paymentsState).slice(0, 6).map((p) => (
+                    {paymentsState.slice(0, 6).map((p) => (
                       <div key={p.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                         <div>
                           <p className="text-sm font-medium text-foreground">{p.student || p.user_name || p.user}</p>
@@ -2133,9 +2149,6 @@ const exportData = async (type: string) => {
                                   await approveAdminBackend(a.id);
                                   return;
                                 }
-                                const all = JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]");
-                                const updated = all.map((x: any) => x.email === a.email ? { ...x, status: "approved" } : x);
-                                localStorage.setItem("ami_admin_accounts", JSON.stringify(updated));
                                 refreshAdminAccounts();
                                 toast.success(`${a.username} approved as Sub-Admin`);
                               }}><CheckCircle size={14} /> Approve</Button>
@@ -2144,10 +2157,7 @@ const exportData = async (type: string) => {
                                   await denyAdminBackend(a.id);
                                   return;
                                 }
-                                const all = JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]");
-                                const updated = all.map((x: any) => x.email === a.email ? { ...x, status: "denied" } : x);
-                                localStorage.setItem("ami_admin_accounts", JSON.stringify(updated));
-                                refreshAdminAccounts();
+                                                refreshAdminAccounts();
                                 toast.success(`${a.username} denied`);
                               }}><XCircle size={14} /> Deny</Button>
                             </>
@@ -2158,9 +2168,6 @@ const exportData = async (type: string) => {
                                 await deleteAdminBackend(a.id);
                                 return;
                               }
-                              const all = JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]");
-                              const updated = all.filter((x: any) => x.email !== a.email);
-                              localStorage.setItem("ami_admin_accounts", JSON.stringify(updated));
                               refreshAdminAccounts();
                               toast.success(`${a.username} removed`);
                             }}><Trash2 size={14} /> Remove</Button>
@@ -2412,8 +2419,7 @@ const exportData = async (type: string) => {
                         if (!res.ok) throw new Error('Failed to add');
                         const data = await res.json();
                         setAssessments(prev => [data, ...prev]);
-                        const localExams = JSON.parse(localStorage.getItem('ami_uploaded_exams') || '[]');
-                        localStorage.setItem('ami_uploaded_exams', JSON.stringify([data, ...localExams]));
+
                         setNewAssessment({ title: '', course: '', type: 'Exam', posted: '', examDates: '', status: 'Posted', weight: '', duration: '60', examLink: '' });
                         setShowAddAssessment(false);
                         toast.success('Exam link uploaded successfully');
@@ -2822,9 +2828,7 @@ const exportData = async (type: string) => {
                             if (useBackend) {
                               await updateAdminBackend(editingAdmin.id, editingRole, editingAdminStatus, normalizedAssignedCourses);
                             } else {
-                              const all = JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]");
-                              const updated = all.map((x: any) => x.email === editingAdmin.email ? { ...x, role: editingRole === 'super' ? 'super' : 'sub', status: editingAdminStatus, assignedCourses: normalizedAssignedCourses } : x);
-                              localStorage.setItem("ami_admin_accounts", JSON.stringify(updated));
+
                               refreshAdminAccounts();
                               if (currentAdmin?.email === editingAdmin.email) {
                                 const mergedSession = { ...currentAdmin, role: editingRole === 'super' ? 'super' : 'sub', status: editingAdminStatus, assignedCourses: normalizedAssignedCourses };

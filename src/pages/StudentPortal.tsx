@@ -144,6 +144,11 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
         const s = JSON.parse(session);
         const token = s?.token;
         if (!token) throw new Error('No token');
+        // Check if browser was reopened (sessionStorage cleared on close)
+        if (!sessionStorage.getItem('ami_student_active')) {
+          localStorage.removeItem('ami_student_session');
+          return;
+        }
         // Verify token is not expired by checking JWT payload
         const payload = JSON.parse(atob(token.split('.')[1]));
         if (payload.exp && payload.exp * 1000 < Date.now()) {
@@ -236,6 +241,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
     try {
       const res = await apiClient.studentLogin(authForm.indexNumber, authForm.password);
       localStorage.setItem('ami_student_session', JSON.stringify({ ...res.user, token: res.token }));
+      sessionStorage.setItem('ami_student_active', '1');
       setIsLoggedIn(true);
       loadStudentData();
       toast.success('Login successful! Welcome back.');
@@ -249,6 +255,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
     try {
       const res = await apiClient.studentSignup({ indexNumber: authForm.indexNumber, phone: authForm.phone, password: authForm.password });
       localStorage.setItem('ami_student_session', JSON.stringify({ ...res.user, token: res.token }));
+      sessionStorage.setItem('ami_student_active', '1');
       setIsLoggedIn(true);
       loadStudentData();
       toast.success('Sign up successful! Welcome.');
@@ -287,12 +294,6 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
     if (newPin.length < 6) { toast.error("Password must be at least 6 characters"); return; }
     if (newPin !== confirmNewPin) { toast.error("Passwords do not match"); return; }
 
-    const accounts = JSON.parse(localStorage.getItem("ami_student_accounts") || "[]");
-    const idx = accounts.findIndex((a: any) => a.phone === forgotPhone.replace(/\s/g, ""));
-    if (idx === -1) { toast.error("Account not found"); return; }
-    accounts[idx].password = newPin;
-    localStorage.setItem("ami_student_accounts", JSON.stringify(accounts));
-
     toast.success("Password reset successfully! You can now log in.");
     setForgotMode(false);
     setResetStep("request");
@@ -305,6 +306,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
   const handleLogout = () => {
     localStorage.removeItem("ami_student_session");
+    sessionStorage.removeItem('ami_student_active');
     setIsLoggedIn(false);
     setAuthForm({ indexNumber: "", password: "", phone: "" });
     setAuthErrors([]);
@@ -1017,8 +1019,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                           const questions = parseExamQuestions(selectedExam.questionsText || selectedExam.questions || "");
                           const score = questions.reduce((acc, question) => acc + (examAnswers[question.id] === question.correctAnswer ? 1 : 0), 0);
                           const result = { examId: selectedExam.id || selectedExam.title, score, total: questions.length, submittedAt: new Date().toISOString() };
-                          const stored = JSON.parse(localStorage.getItem("ami_exam_results") || "[]");
-                          localStorage.setItem("ami_exam_results", JSON.stringify([result, ...stored]));
+
                           setExamScore({ score, total: questions.length });
                           toast.success(`Exam submitted. Score: ${score}/${questions.length}`);
                         }}
@@ -1364,10 +1365,7 @@ function escapeHtml(value: string) {
 
 function readStoredExams() {
   try {
-    const stored = JSON.parse(localStorage.getItem("ami_uploaded_exams") || "[]");
-    return Array.isArray(stored) ? stored : [];
-  } catch {
-    return [];
+    return []; // Exams now fetched from backend
   }
 }
 

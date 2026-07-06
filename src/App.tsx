@@ -40,12 +40,13 @@ const App = () => {
       if (path === '/') {
         const studentSession = localStorage.getItem('ami_student_session');
         const adminSession = localStorage.getItem('ami_admin_session');
-        if (studentSession) {
+        // Only redirect if sessionStorage flag exists (browser wasn't closed)
+        if (studentSession && sessionStorage.getItem('ami_student_active')) {
           try {
             const s = JSON.parse(studentSession);
             if (s?.token) window.location.href = '/student';
           } catch(e) {}
-        } else if (adminSession) {
+        } else if (adminSession && sessionStorage.getItem('ami_admin_active')) {
           try {
             const a = JSON.parse(adminSession);
             if (a?.token) window.location.href = '/admin';

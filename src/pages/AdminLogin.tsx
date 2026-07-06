@@ -20,6 +20,7 @@ const AdminLogin = () => {
     setLoading(true);
     try {
       await apiClient.adminLogin(email, password);
+      sessionStorage.setItem('ami_admin_active', '1');
       toast.success("Logged in");
       navigate("/admin");
     } catch (err: any) {
