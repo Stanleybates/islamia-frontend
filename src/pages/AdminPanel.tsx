@@ -68,7 +68,7 @@ const sidebarItems: { key: Tab; label: string; icon: any; superOnly?: boolean; s
   { key: "admins", label: "Admin Approvals", icon: Shield, superOnly: true },
   { key: "course-assignments", label: "Course Assignments", icon: ClipboardList, superOnly: true },
   { key: "assessments", label: "Assessments", icon: ClipboardList, requiresCourse: true },
-  { key: "settings", label: "Settings", icon: Settings },
+  { key: "settings", label: "Settings", icon: Settings, superOnly: true },
 ];
 
 interface Staff { id: string; name: string; course: string; contact: string; email: string; department: string; }
@@ -1320,7 +1320,7 @@ const exportData = async (type: string) => {
               </div>
             </div>
           )}
-          {activeTab === "admissions" && (
+          {activeTab === "admissions" && isSuperAdmin && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="font-heading text-lg font-bold text-foreground">Admission Applications</h2>
@@ -1988,7 +1988,7 @@ const exportData = async (type: string) => {
               </div>
             </div>
           )}
-          {activeTab === "payments" && (
+          {activeTab === "payments" && isSuperAdmin && (
             <div className="space-y-4">
               <h2 className="font-heading text-lg font-bold text-foreground">Payment Records</h2>
               <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -2023,7 +2023,7 @@ const exportData = async (type: string) => {
               </div>
             </div>
           )}
-          {activeTab === "staff" && (
+          {activeTab === "staff" && isSuperAdmin && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="font-heading text-lg font-bold text-foreground">Staff Directory</h2>
@@ -2187,152 +2187,149 @@ const exportData = async (type: string) => {
             </div>
           )}
           {activeTab === "course-assignments" && isSuperAdmin && (
-            <div className="space-y-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="font-heading text-lg font-bold text-foreground">Course Assignments</h2>
-                  <p className="text-sm text-muted-foreground">Assign courses to sub-admins and lecturers. Their portal updates from the saved assignedCourses list.</p>
-                </div>
-                <span className="text-sm text-muted-foreground">{adminAccounts.filter((admin) => admin.role !== "super").length} editable accounts</span>
-              </div>
-              {/* Inner tabs: Assigned vs Unassigned */}
-              {(() => {
-                const subAdmins = adminAccounts.filter((a: any) => a.role !== "super");
-                const assignedAdmins = subAdmins.filter((a: any) => normalizeAssignedCourses(a.assignedCourses).length > 0);
-                const unassignedAdmins = subAdmins.filter((a: any) => normalizeAssignedCourses(a.assignedCourses).length === 0);
-                return (
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      {["all", "assigned", "unassigned"].map((t) => (
-                        <button key={t} onClick={() => setAssignmentFilter(t as any)}
-                          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${assignmentFilter === t ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:bg-muted"}`}>
-                          {t === "all" ? `All (${subAdmins.length})` : t === "assigned" ? `Assigned (${assignedAdmins.length})` : `Unassigned (${unassignedAdmins.length})`}
-                        </button>
-                      ))}
-                    </div>
-                    {unassignedAdmins.length > 0 && assignmentFilter === "unassigned" && (
-                      <div className="bg-accent/10 border border-accent/20 rounded-xl p-4">
-                        <p className="text-sm font-semibold text-accent mb-2">⚠️ These sub-admins have no courses assigned:</p>
-                        {unassignedAdmins.map((a: any) => (
-                          <p key={a.id} className="text-sm text-muted-foreground">· {a.username} ({a.email})</p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+  <div className="space-y-6">
+    <div>
+      <h2 className="font-heading text-lg font-bold text-foreground">
+        Course Assignments
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        Assign courses to sub-admins and lecturers.
+      </p>
+    </div>
 
-              {adminAccounts.filter((admin) => admin.role !== "super").length === 0 ? (
-                <div className="bg-card rounded-xl border border-border p-10 text-center text-muted-foreground">
-                  No sub-admin accounts available for assignment.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid gap-4 lg:grid-cols-[260px_minmax(420px,1fr)minmax(300px,420px)]">
-                    <div className="bg-card rounded-xl border border-border p-4 space-y-2">
-                      <p className="text-sm font-semibold text-foreground">Sub-admins</p>
-                      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                        {adminAccounts.filter((admin) => admin.role !== "super").map((admin) => {
-                          const isActive = assignmentAdminId === admin.id;
-                          const assignedCount = normalizeAssignedCourses(admin.assignedCourses).length;
-                          return (
-                            <button
-                              key={admin.id}
-                              onClick={() => setAssignmentAdminId(admin.id)}
-                              className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${isActive ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-muted/40"}`}
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div>
-                                  <p className="text-sm font-medium text-foreground">{admin.username}</p>
-                                  <p className="text-xs text-muted-foreground">{admin.email}</p>
-                                </div>
-                                <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">{assignedCount}</span>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div className="bg-card rounded-xl border border-border p-4 space-y-4">
-                      {!assignmentAdminId ? (
-                        <p className="text-sm text-muted-foreground">Select a sub-admin to edit their course list.</p>
-                      ) : (() => {
-                        const selectedAdmin = adminAccounts.find((admin) => admin.id === assignmentAdminId && admin.role !== "super");
-                        if (!selectedAdmin) return <p className="text-sm text-muted-foreground">Select a sub-admin to edit their course list.</p>;
-                        const selectedDraft = assignmentDrafts[selectedAdmin.id] || normalizeAssignedCourses(selectedAdmin.assignedCourses);
-                        return (
-                          <div className="space-y-4">
-                            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
-                                <h3 className="font-heading text-base font-bold text-foreground">{selectedAdmin.username}</h3>
-                                <p className="text-sm text-muted-foreground">{selectedAdmin.email}</p>
-                              </div>
-                              <span className="text-sm text-muted-foreground">{selectedDraft.length} selected</span>
-                            </div>
-                            <div className="space-y-2">
-                              <div className="flex gap-2 flex-wrap">
-                                <Button onClick={() => saveCourseAssignments(selectedAdmin.id, assignmentDrafts[selectedAdmin.id] || [])}>Save Assignments</Button>
-                                <Button variant="outline" onClick={() => setAssignmentDrafts((prev) => ({ ...prev, [selectedAdmin.id]: [] }))}>Clear All</Button>
-                                <Button variant="outline" onClick={() => setAssignmentDrafts((prev) => ({ ...prev, [selectedAdmin.id]: courses.map((course) => course.id) }))}>Assign All</Button>
-                              </div>
-                              {selectedDraft.length > 0 && (
-                                <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-                                  <p className="mb-1 font-medium text-foreground">Preview for sub-admin portal</p>
-                                  <p>{getAssignedCourseTitles(selectedDraft).join(" · ")}</p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                    <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-foreground">Courses</p>
-                        <span className="text-xs text-muted-foreground">{courses.length}</span>
-                      </div>
-                      <input
-                        placeholder="Search courses..."
-                        className="w-full px-3 py-2 border rounded text-sm"
-                        onChange={(e) => { /* simple client-side filter handled inline below */ }}
-                      />
-                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-2 max-h-[36rem] overflow-y-auto pr-1">
-                        {courses.map((course) => {
-                          const selectedAdmin = adminAccounts.find((admin) => admin.id === assignmentAdminId && admin.role !== "super");
-                          const current = selectedAdmin ? (assignmentDrafts[selectedAdmin.id] || normalizeAssignedCourses(selectedAdmin.assignedCourses)) : [];
-                          const checked = current.includes(course.id);
-                          return (
-                            <label key={course.id} className="flex items-start gap-3 rounded-lg border border-border bg-background p-3 text-sm cursor-pointer hover:bg-muted/30">
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => {
-                                  if (!selectedAdmin) return;
-                                  setAssignmentDrafts((prev) => {
-                                    const current = prev[selectedAdmin.id] || normalizeAssignedCourses(selectedAdmin.assignedCourses);
-                                    const next = current.includes(course.id)
-                                      ? current.filter((id) => id !== course.id)
-                                      : [...current, course.id];
-                                    return { ...prev, [selectedAdmin.id]: next };
-                                  });
-                                }}
-                                className="mt-1"
-                              />
-                              <span>
-                                <span className="block font-medium text-foreground">{course.title}</span>
-                                <span className="block text-xs text-muted-foreground">{course.semester} · {course.status}</span>
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+    <div className="flex gap-2">
+      {["assigned", "unassigned"].map((tab) => (
+        <button
+          key={tab}
+          onClick={() => setAssignmentFilter(tab as any)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+            assignmentFilter === tab
+              ? "bg-primary text-primary-foreground"
+              : "bg-card border border-border text-muted-foreground"
+          }`}
+        >
+          {tab === "assigned" ? "👥 Assigned" : "⚠️ Unassigned"}
+        </button>
+      ))}
+    </div>
+
+    <div className="bg-card border border-border rounded-xl p-5">
+      {adminAccounts
+        .filter((a) => a.role !== "super")
+        .filter((a) =>
+          assignmentFilter === "assigned"
+            ? normalizeAssignedCourses(a.assignedCourses).length > 0
+            : normalizeAssignedCourses(a.assignedCourses).length === 0
+        )
+        .map((admin) => (
+          <div
+            key={admin.id}
+            className="flex items-center justify-between border-b border-border py-3"
+          >
+            <div>
+              <p className="font-semibold text-foreground">
+                {admin.username}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {normalizeAssignedCourses(admin.assignedCourses).length} courses assigned
+              </p>
             </div>
-          )}
-          {activeTab === "assessments" && (
+
+            <Button
+              variant="outline"
+              onClick={() => setAssignmentAdminId(admin.id)}
+            >
+              Manage
+            </Button>
+          </div>
+        ))}
+    </div>
+
+    {assignmentAdminId && (
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+
+        <Button
+          variant="outline"
+          onClick={() => setAssignmentAdminId(null)}
+        >
+          ← Back
+        </Button>
+
+        {(() => {
+          const selectedAdmin = adminAccounts.find(
+            (a) => a.id === assignmentAdminId
+          );
+
+          if (!selectedAdmin) return null;
+
+          const current =
+            assignmentDrafts[selectedAdmin.id] ||
+            normalizeAssignedCourses(selectedAdmin.assignedCourses);
+
+          return (
+            <>
+              <div>
+                <h3 className="font-heading font-bold text-lg">
+                  {selectedAdmin.username}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Select courses to assign
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {courses.map((course) => (
+                  <label
+                    key={course.id}
+                    className="flex gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/30"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={current.includes(course.id)}
+                      onChange={() =>
+                        setAssignmentDrafts((prev) => {
+                          const next = current.includes(course.id)
+                            ? current.filter((id) => id !== course.id)
+                            : [...current, course.id];
+
+                          return {
+                            ...prev,
+                            [selectedAdmin.id]: next,
+                          };
+                        })
+                      }
+                    />
+
+                    <div>
+                      <p className="font-medium">
+                        {course.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {course.semester} · {course.status}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              <Button
+                onClick={() =>
+                  saveCourseAssignments(
+                    selectedAdmin.id,
+                    assignmentDrafts[selectedAdmin.id] || []
+                  )
+                }
+              >
+                Save Assignments
+              </Button>
+            </>
+          );
+        })()}
+      </div>
+    )}
+  </div>
+)}
+{activeTab === "assessments" && (
             <div className="space-y-4">
               <h2 className="font-heading text-lg font-bold text-foreground">Assessments & Exams</h2>
 
@@ -2710,7 +2707,7 @@ const exportData = async (type: string) => {
               )}
             </div>
           )}
-          {activeTab === "settings" && (
+          {activeTab === "settings" && isSuperAdmin && (
             <div className="space-y-6 max-w-2xl">
               <h2 className="font-heading text-lg font-bold text-foreground">Settings</h2>
               <div className="bg-card rounded-xl border border-border p-6 space-y-4">
@@ -2743,6 +2740,10 @@ const exportData = async (type: string) => {
                   </Button>
                 </div>
               </div>
+              {isSuperAdmin && (
+                <FeeSettingsTab />
+              )}
+
               <div className="bg-card rounded-xl border border-border p-6">
                 <h3 className="font-heading font-semibold text-foreground mb-3">Data Management</h3>
                 <p className="text-sm text-muted-foreground mb-4">Export or manage stored data.</p>
@@ -2755,7 +2756,7 @@ const exportData = async (type: string) => {
               </div>
             </div>
           )}
-        {activeTab === 'fee' && isSuperAdmin && <FeeSettingsTab />}
+        
         {editingAdmin && (
                 <div className="fixed inset-0 bg-foreground/30 z-50 flex items-center justify-center p-4" onClick={() => setEditingAdmin(null)}>
                   <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
