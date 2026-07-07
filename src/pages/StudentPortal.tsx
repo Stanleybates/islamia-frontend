@@ -1364,9 +1364,7 @@ function escapeHtml(value: string) {
 }
 
 function readStoredExams() {
-  try {
-    return []; // Exams now fetched from backend
-  }
+  return []; // Exams now fetched from backend
 }
 
 function normalizeExamDates(value: unknown) {

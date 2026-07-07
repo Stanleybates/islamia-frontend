@@ -1875,7 +1875,7 @@ const exportData = async (type: string) => {
                               <button onClick={async () => {
                                 try {
                                   const sess = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                                  await fetch(apiUrl('/api/admin/schedule/' + s.id), { method: 'DELETE', headers: { Authorization: 'Bearer ' + sess?.token } });
+                                  await fetch(apiUrl('/api/admin/schedule/' + s.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + sess?.token } });
                                   setSchedules(prev => prev.filter((x: any) => x.id !== s.id));
                                   toast.success('Removed');
                                 } catch(e: any) { toast.error(e.message); }
@@ -2096,7 +2096,7 @@ const exportData = async (type: string) => {
                               <button onClick={async () => {
                                 try {
                                   const tok = JSON.parse(localStorage.getItem('ami_admin_session') || '{}')?.token;
-                                  await fetch(apiUrl('/api/admin/admins/' + s.id), { method: 'DELETE', headers: { Authorization: 'Bearer ' + tok } });
+                                  await fetch(apiUrl('/api/admin/admins/' + s.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + tok } });
                                   setAdminAccounts(prev => prev.filter((x: any) => x.id !== s.id));
                                   toast.success('Staff removed');
                                 } catch (e: any) { toast.error(e.message); }
@@ -2476,7 +2476,7 @@ const exportData = async (type: string) => {
                             <button onClick={async () => {
                               try {
                                 const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                                await fetch(apiUrl('/api/admin/assessments/' + a.id), { method: 'DELETE', headers: { Authorization: 'Bearer ' + s?.token } });
+                                await fetch(apiUrl('/api/admin/assessments/' + a.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token } });
                                 setAssessments(prev => prev.filter(x => x.id !== a.id));
                                 toast.success('Assessment deleted');
                               } catch (e: any) { toast.error(e.message); }
@@ -2607,7 +2607,7 @@ const exportData = async (type: string) => {
                                 <Button size="sm" onClick={async () => {
                                   try {
                                     const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                                    const res = await fetch(apiUrl('/api/admin/exams/' + e.id + '/approve'), { method: 'PUT', headers: { Authorization: 'Bearer ' + s?.token } });
+                                    const res = await fetch(apiUrl('/api/admin/exams/' + e.id + '/approve'), { method: 'PUT', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token } });
                                     if (!res.ok) throw new Error('Failed');
                                     setExams(prev => prev.map(x => x.id === e.id ? {...x, approval_status: 'approved'} : x));
                                     toast.success('Exam approved');
@@ -2648,7 +2648,7 @@ const exportData = async (type: string) => {
                                 <button onClick={async () => {
                                   try {
                                     const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                                    await fetch(apiUrl('/api/admin/exams/' + e.id), { method: 'DELETE', headers: { Authorization: 'Bearer ' + s?.token } });
+                                    await fetch(apiUrl('/api/admin/exams/' + e.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token } });
                                     setExams(prev => prev.filter(x => x.id !== e.id));
                                     toast.success('Exam deleted');
                                   } catch (err: any) { toast.error(err.message); }

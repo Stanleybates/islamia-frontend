@@ -1,3 +1,5 @@
+import { getCsrfToken } from './csrf';
+
 const RAW_BASE = import.meta.env.VITE_API_URL || "";
 
 export function apiUrl(path: string) {
@@ -10,10 +12,16 @@ export function apiUrl(path: string) {
 }
 
 async function fetchJson(path: string, body?: any) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (body) {
+    const token = await getCsrfToken();
+    if (token) headers['x-csrf-token'] = token;
+  }
   const res = await fetch(apiUrl(path), {
     method: body ? "POST" : "GET",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
+    credentials: 'include',
   });
   if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || `Server error: ${res.status}`); }
   return res.json();
