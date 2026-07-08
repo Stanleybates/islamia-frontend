@@ -2303,6 +2303,43 @@ const exportData = async (type: string) => {
                 </p>
               </div>
 
+              <div>
+                <p className="text-sm font-semibold text-foreground mb-2">Assigned Courses</p>
+                {current.length === 0 ? (
+                  <p className="text-xs text-muted-foreground mb-3">No courses assigned yet.</p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 mb-4">
+                    {courses.filter((course) => current.includes(course.id)).map((course) => (
+                      <div
+                        key={course.id}
+                        className="flex items-center justify-between gap-3 border border-border rounded-lg p-3 bg-muted/20"
+                      >
+                        <div>
+                          <p className="font-medium">{course.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {course.semester} · {course.status}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive border-destructive/30"
+                          onClick={() =>
+                            saveCourseAssignments(
+                              selectedAdmin.id,
+                              current.filter((id) => id !== course.id)
+                            )
+                          }
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-sm font-semibold text-foreground mb-1">Available Courses</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {courses.filter((course) => {
                   const takenByAnyone = adminAccounts.some(
