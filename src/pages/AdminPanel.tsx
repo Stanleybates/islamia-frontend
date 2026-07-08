@@ -704,7 +704,7 @@ if (studentsRes?.data) {
       const res = await fetch(apiUrl('/api/admin/grades/approve/' + gradeId), { method: 'PUT', headers });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
-      setGrades((g) => g.map(x => x.id === updated.id ? updated : x));
+      setGrades((g) => g.map(x => String(x.id) === String(updated.id) ? updated : x));
       toast.success('Grade approved');
     } catch (e) { toast.error('Could not approve grade'); }
   };
@@ -749,10 +749,10 @@ const exportData = async (type: string) => {
       // capture previous state for undo
       setAdminAccounts((a) => {
         const prev = a;
-        const next = prev.map(x => x.id === updated.id ? updated : x);
-        const prevItem = prev.find(x => x.id === updated.id);
+        const next = prev.map(x => String(x.id) === String(updated.id) ? updated : x);
+        const prevItem = prev.find(x => String(x.id) === String(updated.id));
         addUndoItem(`Revert approval for ${updated.username || updated.email}`, async () => {
-          setAdminAccounts((cur) => cur.map(x => x.id === updated.id ? (prevItem || { ...updated, status: 'pending' }) : x));
+          setAdminAccounts((cur) => cur.map(x => String(x.id) === String(updated.id) ? (prevItem || { ...updated, status: 'pending' }) : x));
 
         });
         toast.success('Admin approved — undo available for 5 minutes');
@@ -789,10 +789,10 @@ const exportData = async (type: string) => {
       const res = await fetch(apiUrl('/api/admin/admins/deny/' + userId), { method: 'PUT', headers });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
-      const prevItem = adminAccounts.find(x => x.id === updated.id);
-      setAdminAccounts((a) => a.map(x => x.id === updated.id ? { ...x, status: updated.status } : x));
+      const prevItem = adminAccounts.find(x => String(x.id) === String(updated.id));
+      setAdminAccounts((a) => a.map(x => String(x.id) === String(updated.id) ? { ...x, status: updated.status } : x));
       addUndoItem(`Revert denial for ${updated.username || updated.email}`, async () => {
-        setAdminAccounts((cur) => cur.map(x => x.id === updated.id ? (prevItem || { ...updated, status: 'pending' }) : x));
+        setAdminAccounts((cur) => cur.map(x => String(x.id) === String(updated.id) ? (prevItem || { ...updated, status: 'pending' }) : x));
 
       });
       toast.success('Admin denied — undo available for 5 minutes');
@@ -817,7 +817,7 @@ const exportData = async (type: string) => {
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed'); }
       const updated = await res.json();
-      setAdminAccounts((a) => a.map(x => x.id === updated.id ? { ...x, assignedCourses: updated.assigned_courses || assignedCourses } : x));
+      setAdminAccounts((a) => a.map(x => String(x.id) === String(updated.id) ? { ...x, assignedCourses: updated.assigned_courses || assignedCourses } : x));
       return;
     }
     try {
@@ -829,7 +829,7 @@ const exportData = async (type: string) => {
       });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
-      setAdminAccounts((a) => a.map(x => x.id === updated.id ? { ...x, status: updated.status, role: updated.role, assignedCourses: normalizeAssignedCourses(updated.assignedCourses || updated.assigned_courses || updated.courses || assignedCourses) } : x));
+      setAdminAccounts((a) => a.map(x => String(x.id) === String(updated.id) ? { ...x, status: updated.status, role: updated.role, assignedCourses: normalizeAssignedCourses(updated.assignedCourses || updated.assigned_courses || updated.courses || assignedCourses) } : x));
       if (currentAdmin?.id === updated.id) {
         const mergedSession = { ...currentAdmin, status: updated.status, role: updated.role, assignedCourses: normalizeAssignedCourses(updated.assignedCourses || updated.assigned_courses || updated.courses || assignedCourses) };
         setCurrentAdmin(mergedSession);
@@ -1207,7 +1207,7 @@ const exportData = async (type: string) => {
           })}
         </nav>
         <div className="p-3 border-t border-border space-y-1 flex-shrink-0">
-          <Link to="/" className="flex items-center gap-3 px-4 py-3 text-sm text-muted-foreground hover:bg-muted hover:text-primary rounded-lg transition-colors">
+          <Link to="/" onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 text-sm text-muted-foreground hover:bg-muted hover:text-primary rounded-lg transition-colors">
             <Home size={16} />Back to Website
           </Link>
           <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors w-full">
