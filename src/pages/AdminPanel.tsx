@@ -2304,7 +2304,12 @@ const exportData = async (type: string) => {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                {courses.map((course) => (
+                {courses.filter((course) => {
+                  const takenByAnyone = adminAccounts.some(
+                    (a) => normalizeAssignedCourses(a.assignedCourses).includes(course.id)
+                  );
+                  return !takenByAnyone;
+                }).map((course) => (
                   <label
                     key={course.id}
                     className="flex gap-3 border border-border rounded-lg p-3 cursor-pointer hover:bg-muted/30"
