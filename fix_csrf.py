@@ -1,4 +1,4 @@
-import { apiUrl } from './apiClient';
+content = '''import { apiUrl } from './apiClient';
 
 let csrfToken = '';
 
@@ -9,11 +9,16 @@ export const getCsrfToken = async (): Promise<string> => {
     const data = await res.json();
     csrfToken = data.csrfToken;
     return csrfToken;
-  }  catch(e) {
-  console.error('CSRF token fetch failed:', e);
-  alert('CSRF fetch error: ' + (e as Error).message);
-  return '';
-}
+  } catch(e) {
+    console.error('CSRF token fetch failed:', e);
+    return '';
+  }
 };
 
 export const resetCsrfToken = () => { csrfToken = ''; };
+'''
+
+with open('src/lib/csrf.ts', 'w') as f:
+    f.write(content)
+
+print("Updated src/lib/csrf.ts")

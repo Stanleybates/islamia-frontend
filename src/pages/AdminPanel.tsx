@@ -16,6 +16,7 @@ import logo from "@/assets/logo.png";
 import adminBg from "@/assets/admin-bg.webp";
 import { supabase } from "@/integrations/supabase/client";
 import { apiUrl } from "@/lib/apiClient";
+import { getCsrfToken } from "@/lib/csrf";
 import { jsPDF } from "jspdf";
 
 interface Student { id: string; name: string; email: string; semester: string; status: string; gpa: string; }
@@ -163,13 +164,19 @@ const FeeSettingsTab = () => {
     notify ? setNotifying(true) : setLoading(true);
     setMsg('');
     try {
+      const csrfToken = await getCsrfToken();
       const endpoint = notify ? apiUrl('/api/admin/settings/notify') : apiUrl('/api/admin/settings');
       const res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
         body: JSON.stringify({ semester, fee: Number(fee), admissionStart, admissionEnd, examWindowStart, examWindowEnd }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setMsg(data.message || 'Failed to save settings');
+        return;
+      }
       writeSemesterSettings({ semester, fee: Number(fee), admissionStart, admissionEnd });
       setMsg(data.message);
     } catch (e) { setMsg(e.message); }
@@ -793,9 +800,15 @@ const exportData = async (type: string) => {
     if (assignedCourses !== undefined && !role && !admin_status) {
       const session = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
       const token = session?.token;
+      const csrfToken = await getCsrfToken();
       const res = await fetch(apiUrl(`/api/admin/admins/${userId}/assign-courses`), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+          'x-csrf-token': csrfToken,
+        },
         body: JSON.stringify({ assignedCourses }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed'); }
