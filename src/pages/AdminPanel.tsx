@@ -251,9 +251,10 @@ const ChangePasswordForm = () => {
     try {
       const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
       const token = s?.token;
+      const csrfToken = await getCsrfToken();
       const res = await fetch(apiUrl('/api/admin/change-password'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
         body: JSON.stringify({ currentPassword, password: newPassword }),
       });
       const data = await res.json();
@@ -687,16 +688,19 @@ if (studentsRes?.data) {
 
 
   // Backend action helpers
-  const getAuthHeader = () => {
+  const getAuthHeader = async () => {
+    const csrfToken = await getCsrfToken();
     try {
       const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-      const token = s?.token; return token ? { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-    } catch { return { 'Content-Type': 'application/json' }; }
+      const token = s?.token;
+      const base: Record<string, string> = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
+      return token ? { ...base, Authorization: 'Bearer ' + token } : base;
+    } catch { return { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken }; }
   };
 
   const approveGradeBackend = async (gradeId: any) => {
     try {
-      const headers = getAuthHeader();
+      const headers = await getAuthHeader();
       const res = await fetch(apiUrl('/api/admin/grades/approve/' + gradeId), { method: 'PUT', headers });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
@@ -707,7 +711,7 @@ if (studentsRes?.data) {
 
   const deleteGradeBackend = async (gradeId: any) => {
     try {
-      const headers = getAuthHeader();
+      const headers = await getAuthHeader();
       const res = await fetch(apiUrl('/api/admin/grades/' + gradeId), { method: 'DELETE', headers });
       if (!res.ok) throw new Error('Failed');
       setGrades((g) => g.filter(x => x.id !== gradeId));
@@ -717,7 +721,7 @@ if (studentsRes?.data) {
  const saveSettings = async () => {
   setSettingsSaving(true);
   try {
-    const res = await fetch(apiUrl('/api/admin/settings'), { method: 'PUT', headers: getAuthHeader(), body: JSON.stringify(settings) });
+    const res = await fetch(apiUrl('/api/admin/settings'), { method: 'PUT', headers: await getAuthHeader(), body: JSON.stringify(settings) });
     if (res.ok) toast.success('Settings saved successfully');
     else toast.error('Failed to save settings');
   } catch { toast.error('Failed to save settings'); }
@@ -738,7 +742,7 @@ const exportData = async (type: string) => {
 };
   const approveAdminBackend = async (userId: any) => {
     try {
-      const headers = getAuthHeader();
+      const headers = await getAuthHeader();
       const res = await fetch(apiUrl('/api/admin/admins/approve/' + userId), { method: 'PUT', headers });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
@@ -759,7 +763,7 @@ const exportData = async (type: string) => {
 
   const deleteAdminBackend = async (userId: any) => {
     try {
-      const headers = getAuthHeader();
+      const headers = await getAuthHeader();
       const res = await fetch(apiUrl('/api/admin/admins/' + userId), { method: 'DELETE', headers });
       if (!res.ok) throw new Error('Failed');
       let deleted: any | null = null;
@@ -781,7 +785,7 @@ const exportData = async (type: string) => {
 
   const denyAdminBackend = async (userId: any) => {
     try {
-      const headers = getAuthHeader();
+      const headers = await getAuthHeader();
       const res = await fetch(apiUrl('/api/admin/admins/deny/' + userId), { method: 'PUT', headers });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
@@ -817,7 +821,7 @@ const exportData = async (type: string) => {
       return;
     }
     try {
-      const headers = getAuthHeader();
+      const headers = await getAuthHeader();
       const res = await fetch(apiUrl('/api/admin/admins/' + userId), {
         method: 'PUT',
         headers,
@@ -888,7 +892,8 @@ const exportData = async (type: string) => {
     const midterm = Number(newGrade.midterm);
     const final_ = Number(newGrade.final);
     const grade = calcGrade(midterm, final_);
-    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+    const csrfToken = await getCsrfToken();
+    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}`, 'x-csrf-token': csrfToken };
 
     try {
       // Look up student by index number
@@ -968,7 +973,8 @@ const exportData = async (type: string) => {
     try {
       const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
       const token = s?.token;
-      const headers: any = { 'Content-Type': 'application/json' };
+      const csrfToken = await getCsrfToken();
+      const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(apiUrl('/api/admin/courses'), { method: 'POST', headers, body: JSON.stringify({ title: newCourse.title, semester: newCourse.semester, status: 'Upcoming' }) });
       const created = await res.json();
@@ -988,7 +994,8 @@ const exportData = async (type: string) => {
       try {
         const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
         const token = s?.token;
-        const headers: any = { 'Content-Type': 'application/json' };
+        const csrfToken = await getCsrfToken();
+        const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
         // Update application status first
@@ -1006,7 +1013,8 @@ const exportData = async (type: string) => {
           try {
             const s2 = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
             const token2 = s2?.token;
-            const headers2: any = { 'Content-Type': 'application/json' };
+            const csrfToken2 = await getCsrfToken();
+            const headers2: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken2 };
             if (token2) headers2['Authorization'] = `Bearer ${token2}`;
             await fetch(apiUrl('/api/admin/applications/' + parseInt(dbId)), { method: 'PUT', headers: headers2, body: JSON.stringify({ status: prevApp?.status || 'Pending' }) });
           } catch (e) {
@@ -1533,7 +1541,8 @@ const exportData = async (type: string) => {
                           try {
                             const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                             const token = s?.token;
-                            const headers: any = { 'Content-Type': 'application/json' };
+                            const csrfToken = await getCsrfToken();
+                            const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
                             if (token) headers['Authorization'] = `Bearer ${token}`;
                             const res = await fetch(apiUrl('/api/admin/courses/' + c.id), { method: 'DELETE', headers });
                             setCourses(prev => prev.filter(x => x.id !== c.id));
@@ -1844,9 +1853,10 @@ const exportData = async (type: string) => {
                         <Button onClick={async () => {
                           try {
                             const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                            const csrfToken = await getCsrfToken();
                             const res = await fetch(apiUrl('/api/admin/schedule'), {
                               method: 'POST',
-                              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token },
+                              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken },
                               body: JSON.stringify(newSchedule),
                             });
                             if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
@@ -1888,7 +1898,8 @@ const exportData = async (type: string) => {
                               <button onClick={async () => {
                                 try {
                                   const sess = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                                  await fetch(apiUrl('/api/admin/schedule/' + s.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + sess?.token } });
+                                  const csrfToken = await getCsrfToken();
+                                  await fetch(apiUrl('/api/admin/schedule/' + s.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + sess?.token, 'x-csrf-token': csrfToken } });
                                   setSchedules(prev => prev.filter((x: any) => x.id !== s.id));
                                   toast.success('Removed');
                                 } catch(e: any) { toast.error(e.message); }
@@ -2060,7 +2071,8 @@ const exportData = async (type: string) => {
                       try {
                         const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                         const token = s?.token;
-                        const headers: any = { 'Content-Type': 'application/json' };
+                        const csrfToken = await getCsrfToken();
+                        const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
                         if (token) headers['Authorization'] = `Bearer ${token}`;
                         const res = await fetch(apiUrl('/api/admin/signup'), {
                           method: 'POST',
@@ -2109,7 +2121,8 @@ const exportData = async (type: string) => {
                               <button onClick={async () => {
                                 try {
                                   const tok = JSON.parse(localStorage.getItem('ami_admin_session') || '{}')?.token;
-                                  await fetch(apiUrl('/api/admin/admins/' + s.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + tok } });
+                                  const csrfToken = await getCsrfToken();
+                                  await fetch(apiUrl('/api/admin/admins/' + s.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + tok, 'x-csrf-token': csrfToken } });
                                   setAdminAccounts(prev => prev.filter((x: any) => x.id !== s.id));
                                   toast.success('Staff removed');
                                 } catch (e: any) { toast.error(e.message); }
@@ -2412,7 +2425,8 @@ const exportData = async (type: string) => {
                     <Button onClick={async () => {
                       try {
                         const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                        const headers: any = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token };
+                        const csrfToken = await getCsrfToken();
+                        const headers: any = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken };
                         const normalizedExamDates = normalizeExamDates(newAssessment.examDates || newAssessment.posted);
                         const payload = {
                           ...newAssessment,
@@ -2474,7 +2488,8 @@ const exportData = async (type: string) => {
                             <Button size="sm" onClick={async () => {
                               try {
                                 const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                                const headers: any = { Authorization: 'Bearer ' + s?.token };
+                                const csrfToken = await getCsrfToken();
+                                const headers: any = { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken };
                                 const res = await fetch(apiUrl('/api/admin/assessments/' + a.id + '/approve'), { method: 'PUT', headers });
                                 if (!res.ok) throw new Error('Failed');
                                 setAssessments(prev => prev.map(x => x.id === a.id ? {...x, approval_status: 'approved'} : x));
@@ -2486,7 +2501,8 @@ const exportData = async (type: string) => {
                             <button onClick={async () => {
                               try {
                                 const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                                await fetch(apiUrl('/api/admin/assessments/' + a.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token } });
+                                const csrfToken = await getCsrfToken();
+                                await fetch(apiUrl('/api/admin/assessments/' + a.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken } });
                                 setAssessments(prev => prev.filter(x => x.id !== a.id));
                                 toast.success('Assessment deleted');
                               } catch (e: any) { toast.error(e.message); }
@@ -2536,9 +2552,10 @@ const exportData = async (type: string) => {
                             setCheckingClash(true);
                             try {
                               const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                              const csrfToken = await getCsrfToken();
                               const res = await fetch(apiUrl('/api/admin/exams/check-clash'), {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token },
+                                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken },
                                 body: JSON.stringify({ course: newExam.course, start_time: newExam.start_time, end_time: end }),
                               });
                               const data = await res.json();
@@ -2569,7 +2586,8 @@ const exportData = async (type: string) => {
                           if (examClash) { toast.error('Please resolve time clash before saving'); return; }
                           try {
                             const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                            const headers: any = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token };
+                            const csrfToken = await getCsrfToken();
+                            const headers: any = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken };
                             const res = await fetch(apiUrl('/api/admin/exams'), { method: 'POST', headers, body: JSON.stringify(newExam) });
                             if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
                             const data = await res.json();
@@ -2617,7 +2635,8 @@ const exportData = async (type: string) => {
                                 <Button size="sm" onClick={async () => {
                                   try {
                                     const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                                    const res = await fetch(apiUrl('/api/admin/exams/' + e.id + '/approve'), { method: 'PUT', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token } });
+                                    const csrfToken = await getCsrfToken();
+                                    const res = await fetch(apiUrl('/api/admin/exams/' + e.id + '/approve'), { method: 'PUT', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken } });
                                     if (!res.ok) throw new Error('Failed');
                                     setExams(prev => prev.map(x => x.id === e.id ? {...x, approval_status: 'approved'} : x));
                                     toast.success('Exam approved');
@@ -2630,9 +2649,10 @@ const exportData = async (type: string) => {
                                 if (!newStart || !newEnd) return;
                                 try {
                                   const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                                  const csrfToken = await getCsrfToken();
                                   const res = await fetch(apiUrl('/api/admin/exams/' + e.id), {
                                     method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token },
+                                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken },
                                     body: JSON.stringify({ start_time: newStart, end_time: newEnd }),
                                   });
                                   if (!res.ok) throw new Error('Failed');
@@ -2644,9 +2664,10 @@ const exportData = async (type: string) => {
                               <Button size="sm" variant="outline" onClick={async () => {
                                 try {
                                   const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                                  const csrfToken = await getCsrfToken();
                                   const res = await fetch(apiUrl('/api/admin/exams/' + e.id), {
                                     method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token },
+                                    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken },
                                     body: JSON.stringify({ status: 'on_hold' }),
                                   });
                                   if (!res.ok) throw new Error('Failed');
@@ -2658,7 +2679,8 @@ const exportData = async (type: string) => {
                                 <button onClick={async () => {
                                   try {
                                     const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                                    await fetch(apiUrl('/api/admin/exams/' + e.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token } });
+                                    const csrfToken = await getCsrfToken();
+                                    await fetch(apiUrl('/api/admin/exams/' + e.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken } });
                                     setExams(prev => prev.filter(x => x.id !== e.id));
                                     toast.success('Exam deleted');
                                   } catch (err: any) { toast.error(err.message); }
