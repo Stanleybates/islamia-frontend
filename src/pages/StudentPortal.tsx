@@ -241,6 +241,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
     try {
       const res = await apiClient.studentLogin(authForm.indexNumber, authForm.password);
       localStorage.setItem('ami_student_session', JSON.stringify({ ...res.user, token: res.token }));
+      localStorage.setItem('ami_last_activity_ts', String(Date.now()));
       sessionStorage.setItem('ami_student_active', '1');
       setIsLoggedIn(true);
       loadStudentData();
@@ -255,6 +256,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
     try {
       const res = await apiClient.studentSignup({ indexNumber: authForm.indexNumber, phone: authForm.phone, password: authForm.password });
       localStorage.setItem('ami_student_session', JSON.stringify({ ...res.user, token: res.token }));
+      localStorage.setItem('ami_last_activity_ts', String(Date.now()));
       sessionStorage.setItem('ami_student_active', '1');
       setIsLoggedIn(true);
       loadStudentData();
