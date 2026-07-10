@@ -1679,7 +1679,7 @@ const exportData = async (type: string) => {
                       {schedules.length === 0 && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No schedules set yet</td></tr>}
                       {schedules.map((s: any) => (
                         <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                          <td className="p-4 font-medium">{s.course}</td>
+                          <td className="p-4 font-medium">{getCourseTitle(s.course, courses)}</td>
                           <td className="p-4 text-muted-foreground">{s.day_of_week}</td>
                           <td className="p-4 text-muted-foreground">{s.start_time} — {s.end_time}</td>
                           <td className="p-4 text-muted-foreground">{s.venue}</td>
@@ -1825,7 +1825,7 @@ const exportData = async (type: string) => {
                         doc.text(day, 10, y); y += 5;
                         doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
                         cls.forEach((s: any) => {
-                          doc.text(`  ${s.course} | ${s.start_time} - ${s.end_time} | ${s.venue}`, 10, y); y += 5;
+                          doc.text(`  ${getCourseTitle(s.course, courses)} | ${s.start_time} - ${s.end_time} | ${s.venue}`, 10, y); y += 5;
                           if (s.meeting_link) { doc.text(`  Link: ${s.meeting_link}`, 10, y); y += 5; }
                         });
                         y += 3;
@@ -1840,7 +1840,7 @@ const exportData = async (type: string) => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <select value={newSchedule.course} onChange={e => setNewSchedule({...newSchedule, course: e.target.value})} className={inputClass}>
                           <option value="">Select Course</option>
-                          {currentAssignedCourses.map((c: any) => <option key={c.id} value={c.title}>{c.title}</option>)}
+                          {currentAssignedCourses.map((c: any) => <option key={c.id} value={c.id}>{c.title}</option>)}
                         </select>
                         <select value={newSchedule.day_of_week} onChange={e => setNewSchedule({...newSchedule, day_of_week: e.target.value})} className={inputClass}>
                           {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(d => <option key={d}>{d}</option>)}
@@ -1900,7 +1900,7 @@ const exportData = async (type: string) => {
                         )}
                         {schedules.filter((s: any) => currentAssignedCourseIds.includes(s.course)).map((s: any) => (
                           <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                            <td className="p-4 font-medium">{s.course}</td>
+                            <td className="p-4 font-medium">{getCourseTitle(s.course, courses)}</td>
                             <td className="p-4 text-muted-foreground">{s.day_of_week}</td>
                             <td className="p-4 text-muted-foreground">{s.start_time} — {s.end_time}</td>
                             <td className="p-4 text-muted-foreground">{s.venue}</td>

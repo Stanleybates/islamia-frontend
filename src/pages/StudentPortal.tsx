@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import apiClient from "@/lib/apiClient";
 import { apiUrl } from '@/lib/apiClient';
+import { getCsrfToken } from '@/lib/csrf';
 import { Link } from "react-router-dom";
 import { BookOpen, GraduationCap, Bell, User, LogOut, Home, Clock, Award, Eye, EyeOff, KeyRound, Phone, ClipboardList, FileText, CheckCircle2 } from "lucide-react";
 import { jsPDF } from "jspdf";
@@ -267,9 +268,11 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
   const handleForgotRequest = async () => {
     if (!checkResetAttempts()) return;
     try {
+      const csrfToken = await getCsrfToken();
       const res = await fetch(apiUrl('/api/auth/forgot'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
         body: JSON.stringify({ phone: forgotPhone }),
       });
       const data = await res.json();
@@ -382,9 +385,11 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
     try {
       const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
       const token = s?.token;
+      const csrfToken = await getCsrfToken();
       const res = await fetch(apiUrl('/api/student/change-password'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
         body: JSON.stringify({
           currentPassword: securityForm.currentPassword,
           newPassword: securityForm.newPassword,
@@ -427,7 +432,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       dayClasses.forEach((s: any) => {
-        doc.text(`  ${s.course}`, 10, y);
+        doc.text(`  ${s.course_title || s.course}`, 10, y);
         doc.text(`${s.start_time} - ${s.end_time}`, 100, y);
         doc.text(s.venue || 'Online', 150, y);
         y += 6;
@@ -820,9 +825,11 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                     const token = session?.token;
                     const method = course.enrolled ? 'DELETE' : 'POST';
                     try {
+                      const csrfToken = await getCsrfToken();
                       const res = await fetch(apiUrl(`/api/student/courses/${course.id}/enroll`), {
                         method,
-                        headers: { Authorization: 'Bearer ' + token },
+                        credentials: 'include',
+                        headers: { Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
                       });
                       if (res.ok) {
                         toast.success(course.enrolled ? 'Unenrolled successfully' : 'Enrolled successfully!');
@@ -1162,9 +1169,11 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                     const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
                     const token = s?.token;
                     try {
+                      const csrfToken = await getCsrfToken();
                       await fetch(apiUrl('/api/student/notifications/read-all'), {
                         method: 'PUT',
-                        headers: { Authorization: 'Bearer ' + token },
+                        credentials: 'include',
+                        headers: { Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
                       });
                       setPortalNotifications(prev => prev.map(n => ({ ...n, read: true })));
                     } catch(e) { console.error(e); }
@@ -1189,9 +1198,11 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                       const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
                       const token = s?.token;
                       try {
+                        const csrfToken = await getCsrfToken();
                         await fetch(apiUrl(`/api/student/notifications/${n.id}/read`), {
                           method: 'PUT',
-                          headers: { Authorization: 'Bearer ' + token },
+                          credentials: 'include',
+                          headers: { Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
                         });
                         setPortalNotifications(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
                       } catch(e) { console.error(e); }
@@ -1244,7 +1255,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                       {dayClasses.map((s: any) => (
                         <div key={s.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border last:border-0">
                           <div>
-                            <p className="font-medium text-foreground">{s.course}</p>
+                            <p className="font-medium text-foreground">{s.course_title || s.course}</p>
                             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                               <Clock size={12} /> {s.start_time} — {s.end_time}
                             </p>
