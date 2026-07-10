@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 import { apiUrl } from '@/lib/apiClient';
+import { getCsrfToken } from '@/lib/csrf';
 
 const AdminForgot = () => {
   const [phone, setPhone] = useState("");
@@ -15,9 +16,11 @@ const AdminForgot = () => {
     setLoading(true);
     setError("");
     try {
+      const csrfToken = await getCsrfToken();
       const res = await fetch(apiUrl('/api/admin/forgot'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
         body: JSON.stringify({ phone }),
       });
       const data = await res.json();
