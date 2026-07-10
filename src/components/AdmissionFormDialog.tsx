@@ -3,6 +3,7 @@ import { X, GraduationCap, Loader2, MessageCircle, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { formatSemesterDate, readSemesterSettings } from "@/lib/semester-settings";
+import { getCsrfToken } from "@/lib/csrf";
 
 interface AdmissionFormDialogProps {
   open: boolean;
@@ -154,9 +155,11 @@ const AdmissionFormDialog = ({ open, onClose }: AdmissionFormDialogProps) => {
       };
 
       const apiUrl = import.meta.env.VITE_API_URL || '';
+      const csrfToken = await getCsrfToken();
       const res = await fetch(apiUrl + '/api/auth/apply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
