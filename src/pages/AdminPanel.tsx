@@ -336,6 +336,7 @@ const AdminPanel = () => {
   const [coursesInnerTab, setCoursesInnerTab] = useState<"courses" | "results" | "schedule">("courses");
   const [exams, setExams] = useState<any[]>([]);
   const [showAddExam, setShowAddExam] = useState(false);
+  const [savingExam, setSavingExam] = useState(false);
   const [newExam, setNewExam] = useState({ course: '', title: '', exam_link: '', start_time: '', end_time: '', num_questions: '', duration: '60', instructions: '' });
   const [examClash, setExamClash] = useState<any>(null);
   const [examResults, setExamResults] = useState<any[]>([]);
@@ -352,6 +353,7 @@ const AdminPanel = () => {
   const [, setNowTick] = useState(0);
   const [assessments, setAssessments] = useState<any[]>([]);
   const [showAddAssessment, setShowAddAssessment] = useState(false);
+  const [savingAssessment, setSavingAssessment] = useState(false);
   const [newAssessment, setNewAssessment] = useState({ title: "", course: "", type: "Exam", posted: "", examDates: "", status: "Posted", weight: "", duration: "60", examLink: "" });
 
   const refreshAdminAccounts = () => {
@@ -2475,7 +2477,8 @@ const exportData = async (type: string) => {
                     Enter one date or several dates separated by commas or new lines. Paste the exam link students should open in their portal.
                   </p>
                   <div className="flex gap-2">
-                    <Button onClick={async () => {
+                    <Button disabled={savingAssessment} onClick={async () => {
+                      setSavingAssessment(true);
                       try {
                         const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                         const csrfToken = await getCsrfToken();
@@ -2493,16 +2496,21 @@ const exportData = async (type: string) => {
                           approval_status: 'approved'
                         };
                         const res = await fetch(apiUrl('/api/admin/assessments'), { method: 'POST', headers, body: JSON.stringify(payload) });
-                        if (!res.ok) throw new Error('Failed to add');
+                        if (!res.ok) {
+                          let msg = 'Something went wrong. Please check your connection and try again.';
+                          try { const e = await res.json(); msg = e.message || msg; } catch {}
+                          throw new Error(msg);
+                        }
                         const data = await res.json();
                         setAssessments(prev => [data, ...prev]);
 
                         setNewAssessment({ title: '', course: '', type: 'Exam', posted: '', examDates: '', status: 'Posted', weight: '', duration: '60', examLink: '' });
                         setShowAddAssessment(false);
                         toast.success('Exam link uploaded successfully');
-                      } catch (e: any) { toast.error(e.message); }
-                    }}>Save</Button>
-                    <Button variant="outline" onClick={() => setShowAddAssessment(false)}>Cancel</Button>
+                      } catch (e: any) { toast.error(e.message || 'Something went wrong. Please try again.'); }
+                      finally { setSavingAssessment(false); }
+                    }}>{savingAssessment ? 'Saving...' : 'Save'}</Button>
+                    <Button variant="outline" disabled={savingAssessment} onClick={() => setShowAddAssessment(false)}>Cancel</Button>
                   </div>
                 </div>
               )}
@@ -2635,8 +2643,9 @@ const exportData = async (type: string) => {
                         </div>
                       )}
                       <div className="flex gap-2">
-                        <Button onClick={async () => {
+                        <Button disabled={savingExam} onClick={async () => {
                           if (examClash) { toast.error('Please resolve time clash before saving'); return; }
+                          setSavingExam(true);
                           try {
                             const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                             const csrfToken = await getCsrfToken();
@@ -2653,8 +2662,9 @@ const exportData = async (type: string) => {
                             setShowAddExam(false);
                             toast.success('Exam scheduled — awaiting super admin approval');
                           } catch (e: any) { toast.error(e.message || 'Something went wrong. Please try again.'); }
-                        }}>Save</Button>
-                        <Button variant="outline" onClick={() => setShowAddExam(false)}>Cancel</Button>
+                          finally { setSavingExam(false); }
+                        }}>{savingExam ? 'Saving...' : 'Save'}</Button>
+                        <Button variant="outline" disabled={savingExam} onClick={() => setShowAddExam(false)}>Cancel</Button>
                       </div>
                     </div>
                   )}
