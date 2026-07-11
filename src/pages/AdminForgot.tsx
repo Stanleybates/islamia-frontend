@@ -6,13 +6,13 @@ import { apiUrl } from '@/lib/apiClient';
 import { getCsrfToken } from '@/lib/csrf';
 
 const AdminForgot = () => {
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
   const handleRequest = async () => {
-    if (!phone.trim()) { setError("Please enter your phone number"); return; }
+    if (!email.trim()) { setError("Please enter your email address"); return; }
     setLoading(true);
     setError("");
     try {
@@ -21,7 +21,7 @@ const AdminForgot = () => {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ email }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Error');
@@ -45,18 +45,18 @@ const AdminForgot = () => {
           {sent ? (
             <div className="text-center space-y-3">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                <span className="text-3xl">📱</span>
+                <span className="text-3xl">📧</span>
               </div>
-              <h2 className="font-bold text-foreground">Check Your SMS</h2>
-              <p className="text-sm text-muted-foreground">A temporary password has been sent to <span className="font-semibold text-foreground">{phone}</span>. Use it to log in then change your password in Settings.</p>
+              <h2 className="font-bold text-foreground">Check Your Email</h2>
+              <p className="text-sm text-muted-foreground">A temporary password has been sent to <span className="font-semibold text-foreground">{email}</span>. Please check your inbox (and spam folder), then use it to log in and change your password.</p>
               <Link to="/admin/login" className="block text-primary text-sm mt-4">← Back to Login</Link>
             </div>
           ) : (
             <div className="space-y-3">
               {error && <div className="bg-destructive/10 border border-destructive/20 rounded p-2 text-xs text-destructive">{error}</div>}
               <div>
-                <label className="text-sm block mb-1">Phone Number</label>
-                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="Your registered phone number" />
+                <label className="text-sm block mb-1">Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="Your registered email address" />
               </div>
               <Button variant="gold" className="w-full" onClick={handleRequest} disabled={loading}>
                 {loading ? "Sending..." : "Send Temporary Password"}

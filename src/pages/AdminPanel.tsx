@@ -2440,7 +2440,7 @@ const exportData = async (type: string) => {
               </div>
               {showAddAssessment && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
-                  <h3 className="font-heading font-semibold text-foreground">New Exam Upload</h3>
+                  <h3 className="font-heading font-semibold text-foreground">New Assessment</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input value={newAssessment.title} onChange={e => setNewAssessment({...newAssessment, title: e.target.value})} className={inputClass} placeholder="Title" />
                     {isSuperAdmin ? (
@@ -2642,13 +2642,17 @@ const exportData = async (type: string) => {
                             const csrfToken = await getCsrfToken();
                             const headers: any = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken };
                             const res = await fetch(apiUrl('/api/admin/exams'), { method: 'POST', headers, body: JSON.stringify(newExam) });
-                            if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+                            if (!res.ok) {
+                              let msg = 'Something went wrong. Please check your connection and try again.';
+                              try { const e = await res.json(); msg = e.message || msg; } catch {}
+                              throw new Error(msg);
+                            }
                             const data = await res.json();
                             setExams(prev => [data, ...prev]);
                             setNewExam({ course: '', title: '', exam_link: '', start_time: '', end_time: '', num_questions: '', duration: '60', instructions: '' });
                             setShowAddExam(false);
                             toast.success('Exam scheduled — awaiting super admin approval');
-                          } catch (e: any) { toast.error(e.message); }
+                          } catch (e: any) { toast.error(e.message || 'Something went wrong. Please try again.'); }
                         }}>Save</Button>
                         <Button variant="outline" onClick={() => setShowAddExam(false)}>Cancel</Button>
                       </div>
