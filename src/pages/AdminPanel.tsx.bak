@@ -1384,10 +1384,9 @@ const exportData = async (type: string) => {
                           <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
                             app.status === "Pending" ? "bg-accent/10 text-accent" :
                             app.status === "Approved" ? "bg-yellow-500/10 text-yellow-600" :
-                            app.status === "Paid" ? "bg-green-500/10 text-green-600" :
                             app.status === "Enrolled" ? "bg-primary/10 text-primary" :
                             "bg-destructive/10 text-destructive"
-                          }`}>{app.status === "Paid" ? "Paid" : app.status === "Approved" ? "Awaiting Payment" : app.status}</span>
+                          }`}>{app.status === "Approved" ? "Awaiting Payment" : app.status}</span>
                           <button onClick={() => setViewingApp(app)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary">
                             <Eye size={16} />
                           </button>
