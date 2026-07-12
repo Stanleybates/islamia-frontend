@@ -1026,7 +1026,23 @@ const exportData = async (type: string) => {
         });
         toast.success(`Application ${appId} ${action.toLowerCase()}. Notification sent to ${app?.fullName}. Undo available for 5 minutes.`);
 
-        // Payment is confirmed later via Paystack webhook once the student actually pays.
+        // If approved, automatically confirm payment (backend will verify Paystack or mark manual)
+        if (status === 'Approved') {
+          try {
+            const res2 = await fetch(apiUrl('/api/admin/applications/' + parseInt(dbId) + '/confirm'), {
+              method: 'PUT', headers,
+              body: JSON.stringify({ manual: true }),
+            });
+            const d2 = await res2.json();
+            if (!res2.ok) throw new Error(d2.message || 'Payment confirm failed');
+            // update application entry from server response if provided
+            if (d2.application) setApplications(prev => prev.map(a => a.id === appId ? d2.application : a));
+            toast.success(d2.message || 'Payment confirmed and student enrolled.');
+            await loadDashboardData();
+          } catch (e: any) {
+            toast.error(e.message || 'Auto-confirm payment failed');
+          }
+        }
       } catch (e: any) { toast.error(e.message); }
       return;
     }
