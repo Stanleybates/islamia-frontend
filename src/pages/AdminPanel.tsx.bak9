@@ -1185,7 +1185,6 @@ const exportData = async (type: string) => {
             const mySemestersSet = new Set(currentAssignedCourses.map((c: any) => c.semester));
             const newAdmissionsCount = applications.filter((a: any) => a.status === "Pending" && mySemestersSet.has(a.semester)).length;
             const notificationCount = pendingGradesCount + pendingAssessmentsCount + newAdmissionsCount;
-            const pendingExamsCount = isSuperAdmin ? exams.filter((e: any) => e.approval_status !== 'approved').length : 0;
             return (
             <button
               key={item.key}
@@ -1209,11 +1208,6 @@ const exportData = async (type: string) => {
               {item.key === "notifications" && notificationCount > 0 && (
                 <span className="bg-destructive text-destructive-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0">
                   {notificationCount}
-                </span>
-              )}
-              {item.key === "assessments" && pendingExamsCount > 0 && (
-                <span className="bg-destructive text-destructive-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0">
-                  {pendingExamsCount}
                 </span>
               )}
             </button>
@@ -1552,20 +1546,6 @@ const exportData = async (type: string) => {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${c.status === "Active" ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"}`}>{c.status}</span>
-                        {isSuperAdmin && c.status !== "Active" && <button onClick={async () => {
-                          try {
-                            const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-                            const token = s?.token;
-                            const csrfToken = await getCsrfToken();
-                            const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
-                            if (token) headers['Authorization'] = `Bearer ${token}`;
-                            const res = await fetch(apiUrl('/api/admin/courses/' + c.id), { method: 'PUT', headers, body: JSON.stringify({ status: 'Active' }) });
-                            if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Failed to activate course'); }
-                            const updated = await res.json();
-                            setCourses(prev => prev.map(x => x.id === c.id ? { ...x, status: updated.status } : x));
-                            toast.success('Course activated');
-                          } catch (e: any) { toast.error(e.message); }
-                        }} className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary hover:bg-primary/20">Activate</button>}
                         {isSuperAdmin && <button onClick={async () => {
                           try {
                             const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');

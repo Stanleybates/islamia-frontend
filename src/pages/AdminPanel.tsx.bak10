@@ -1185,7 +1185,6 @@ const exportData = async (type: string) => {
             const mySemestersSet = new Set(currentAssignedCourses.map((c: any) => c.semester));
             const newAdmissionsCount = applications.filter((a: any) => a.status === "Pending" && mySemestersSet.has(a.semester)).length;
             const notificationCount = pendingGradesCount + pendingAssessmentsCount + newAdmissionsCount;
-            const pendingExamsCount = isSuperAdmin ? exams.filter((e: any) => e.approval_status !== 'approved').length : 0;
             return (
             <button
               key={item.key}
@@ -1209,11 +1208,6 @@ const exportData = async (type: string) => {
               {item.key === "notifications" && notificationCount > 0 && (
                 <span className="bg-destructive text-destructive-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0">
                   {notificationCount}
-                </span>
-              )}
-              {item.key === "assessments" && pendingExamsCount > 0 && (
-                <span className="bg-destructive text-destructive-foreground text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0">
-                  {pendingExamsCount}
                 </span>
               )}
             </button>
