@@ -15,7 +15,7 @@ const StudentLogin = () => {
   const handleLogin = async () => {
     setErrors([]);
     try {
-      await apiClient.studentLogin(indexNumber, password);
+      await apiClient.studentLogin(indexNumber.trim(), password.trim());
       toast.success("Login successful! Welcome back.");
       navigate("/student");
     } catch (err: any) {

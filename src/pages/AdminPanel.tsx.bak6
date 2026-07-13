@@ -19,7 +19,7 @@ import { apiUrl } from "@/lib/apiClient";
 import { getCsrfToken } from "@/lib/csrf";
 import { jsPDF } from "jspdf";
 
-interface Student { id: string; name: string; email: string; semester: string; status: string; gpa: string; indexNumber?: string; enrolledCourses?: string[]; }
+interface Student { id: string; name: string; email: string; semester: string; status: string; gpa: string; }
 interface Course { id: string; title: string; semester: string; enrolled: number; status: string; }
 interface AdminAccount { id: string; username: string; email: string; phone?: string; role?: string; status?: string; createdAt?: string; assignedCourses?: string[]; }
 interface Payment { id: string; student: string; amount: string; method: string; date: string; status: string; }
@@ -394,7 +394,7 @@ const AdminPanel = () => {
         })));
       }
       if (paymentsRes?.data || Array.isArray(paymentsRes)) setPaymentsState(paymentsRes?.data || paymentsRes);
-      if (studentsRes?.data) setStudents(studentsRes.data.map((s) => ({ id: String(s.id), name: s.username || s.email, email: s.email, semester: s.semester || 'Sem 1', status: 'Active', gpa: '0.0', indexNumber: s.index_number || '', enrolledCourses: s.enrolled_courses || [] })));
+      if (studentsRes?.data) setStudents(studentsRes.data.map((s) => ({ id: String(s.id), name: s.username || s.email, email: s.email, semester: s.semester || 'Sem 1', status: 'Active', gpa: '0.0', enrolledCourses: s.enrolled_courses || [] })));
       if (coursesRes?.data) setCourses(coursesRes.data.map((c) => ({ id: String(c.id), title: c.title, semester: c.semester, enrolled: c.enrolled || 0, status: c.status })));
       if (statsRes) {
         setStats(statsRes);
@@ -514,8 +514,6 @@ if (studentsRes?.data) {
     semester: 'Sem 1',
     status: 'Active',
     gpa: '0.0',
-    indexNumber: s.index_number || '',
-    enrolledCourses: s.enrolled_courses || [],
   }));
   setStudents(mapped);
 }
@@ -1944,26 +1942,17 @@ const exportData = async (type: string) => {
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
                   <h3 className="font-heading font-semibold text-foreground">Enter New Grade</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <select value={newGrade.student} onChange={(e) => setNewGrade({ ...newGrade, student: e.target.value })} className={inputClass}>
-                      <option value="">{newGrade.course ? 'Select Enrolled Student' : 'Select a course first'}</option>
-                      {students.filter((s: any) => !newGrade.course || (s.enrolledCourses || []).includes(newGrade.course)).map((s: any) => (
-                        <option key={s.id} value={s.indexNumber}>{s.indexNumber} - {s.name}</option>
-                      ))}
-                    </select>
-                    {(() => {
-                      const selectedStudent = students.find((s: any) => s.indexNumber === newGrade.student);
-                      const selectedStudentCourses: string[] | null = selectedStudent ? (selectedStudent.enrolledCourses || []) : null;
-                      const courseOptions = isSuperAdmin ? courses : currentAssignedCourses;
-                      const filteredCourseOptions = courseOptions.filter((c: any) => !selectedStudentCourses || selectedStudentCourses.includes(c.title));
-                      return (
-                        <select value={newGrade.course} onChange={(e) => setNewGrade({ ...newGrade, course: e.target.value })} className={inputClass}>
-                          <option value="">{selectedStudentCourses ? 'Select Enrolled Course' : 'Select Course'}</option>
-                          {filteredCourseOptions.map((c: any) => (
-                            <option key={c.id} value={c.title}>{c.title}</option>
-                          ))}
-                        </select>
-                      );
-                    })()}
+                    <input value={newGrade.student} onChange={(e) => setNewGrade({ ...newGrade, student: e.target.value })} className={inputClass} placeholder="Student Index Number" />
+                    {isSuperAdmin ? (
+                      <input value={newGrade.course} onChange={(e) => setNewGrade({ ...newGrade, course: e.target.value })} className={inputClass} placeholder="Course" />
+                    ) : (
+                      <select value={newGrade.course} onChange={(e) => setNewGrade({ ...newGrade, course: e.target.value })} className={inputClass}>
+                        <option value="">Select Course</option>
+                        {currentAssignedCourses.map((c: any) => (
+                          <option key={c.id} value={c.title}>{c.title}</option>
+                        ))}
+                      </select>
+                    )}
                     <input type="number" value={newGrade.midterm} onChange={(e) => setNewGrade({ ...newGrade, midterm: e.target.value })} className={inputClass} placeholder="Midterm" />
                     <input type="number" value={newGrade.final} onChange={(e) => setNewGrade({ ...newGrade, final: e.target.value })} className={inputClass} placeholder="Final" />
                   </div>

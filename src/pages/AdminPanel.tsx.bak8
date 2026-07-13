@@ -1950,20 +1950,21 @@ const exportData = async (type: string) => {
                         <option key={s.id} value={s.indexNumber}>{s.indexNumber} - {s.name}</option>
                       ))}
                     </select>
-                    {(() => {
-                      const selectedStudent = students.find((s: any) => s.indexNumber === newGrade.student);
-                      const selectedStudentCourses: string[] | null = selectedStudent ? (selectedStudent.enrolledCourses || []) : null;
-                      const courseOptions = isSuperAdmin ? courses : currentAssignedCourses;
-                      const filteredCourseOptions = courseOptions.filter((c: any) => !selectedStudentCourses || selectedStudentCourses.includes(c.title));
-                      return (
-                        <select value={newGrade.course} onChange={(e) => setNewGrade({ ...newGrade, course: e.target.value })} className={inputClass}>
-                          <option value="">{selectedStudentCourses ? 'Select Enrolled Course' : 'Select Course'}</option>
-                          {filteredCourseOptions.map((c: any) => (
-                            <option key={c.id} value={c.title}>{c.title}</option>
-                          ))}
-                        </select>
-                      );
-                    })()}
+                    {isSuperAdmin ? (
+                      <select value={newGrade.course} onChange={(e) => setNewGrade({ ...newGrade, course: e.target.value })} className={inputClass}>
+                        <option value="">Select Course</option>
+                        {courses.map((c: any) => (
+                          <option key={c.id} value={c.title}>{c.title}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <select value={newGrade.course} onChange={(e) => setNewGrade({ ...newGrade, course: e.target.value })} className={inputClass}>
+                        <option value="">Select Course</option>
+                        {currentAssignedCourses.map((c: any) => (
+                          <option key={c.id} value={c.title}>{c.title}</option>
+                        ))}
+                      </select>
+                    )}
                     <input type="number" value={newGrade.midterm} onChange={(e) => setNewGrade({ ...newGrade, midterm: e.target.value })} className={inputClass} placeholder="Midterm" />
                     <input type="number" value={newGrade.final} onChange={(e) => setNewGrade({ ...newGrade, final: e.target.value })} className={inputClass} placeholder="Final" />
                   </div>
