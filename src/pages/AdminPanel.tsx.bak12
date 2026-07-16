@@ -5,7 +5,7 @@ import {
   Plus, Search, Edit, Trash2, Eye, Download, X,
   GraduationCap, BarChart3, CheckCircle, XCircle, FileText,
   LogOut, EyeOff, Mail, Shield, Clock, Lock, Phone,
-  ClipboardList, Bell, ChevronDown
+  ClipboardList, Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
@@ -70,7 +70,7 @@ const sidebarItems: { key: Tab; label: string; icon: any; superOnly?: boolean; s
   { key: "course-assignments", label: "Course Assignments", icon: ClipboardList, superOnly: true },
   { key: "assessments", label: "Assessments", icon: ClipboardList, requiresCourse: true },
   { key: "notifications", label: "Notifications", icon: Bell, subOnly: true, requiresCourse: true },
-  { key: "settings", label: "Settings", icon: Settings },
+  { key: "settings", label: "Settings", icon: Settings, superOnly: true },
 ];
 
 interface Staff { id: string; name: string; course: string; contact: string; email: string; department: string; }
@@ -259,7 +259,6 @@ const ChangePasswordForm = () => {
         body: JSON.stringify({ currentPassword, password: newPassword }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.message || 'Failed to update password'); return; }
       setSuccess('Password updated successfully!');
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
     } catch (e: any) { setError(e.message); }
@@ -337,7 +336,6 @@ const AdminPanel = () => {
   const [coursesInnerTab, setCoursesInnerTab] = useState<"courses" | "results" | "schedule">("courses");
   const [exams, setExams] = useState<any[]>([]);
   const [examWindowMain, setExamWindowMain] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
-  const [expandedExamId, setExpandedExamId] = useState<any>(null);
   const [showAddExam, setShowAddExam] = useState(false);
   const [savingExam, setSavingExam] = useState(false);
   const [newExam, setNewExam] = useState({ course: '', title: '', exam_link: '', start_time: '', end_time: '', num_questions: '', duration: '60', instructions: '' });
@@ -2703,38 +2701,35 @@ const exportData = async (type: string) => {
                     </div>
                   )}
                   <div className="bg-card rounded-xl border border-border overflow-hidden">
-                    {exams.length === 0 && <div className="p-6 text-center text-muted-foreground text-sm">No exams scheduled yet</div>}
-                    {exams.map((e: any) => {
-                      const isExpanded = expandedExamId === e.id;
-                      return (
-                      <div key={e.id} className="border-b border-border last:border-0">
-                        <button
-                          onClick={() => setExpandedExamId(isExpanded ? null : e.id)}
-                          className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-muted/30"
-                        >
-                          <div className="min-w-0">
-                            <p className="font-medium text-foreground truncate">{e.title}</p>
-                            <p className="text-xs text-muted-foreground truncate">{e.course}</p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${e.approval_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                              {e.approval_status === 'approved' ? 'Approved' : 'Pending'}
-                            </span>
-                            <ChevronDown size={16} className={`text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                          </div>
-                        </button>
-                        {isExpanded && (
-                          <div className="px-4 pb-4 space-y-3 text-sm">
-                            <div className="grid grid-cols-2 gap-3 bg-muted/30 rounded-lg p-3">
-                              <div><p className="text-xs text-muted-foreground">Start</p><p>{e.start_time ? new Date(e.start_time).toLocaleString() : '—'}</p></div>
-                              <div><p className="text-xs text-muted-foreground">End</p><p>{e.end_time ? new Date(e.end_time).toLocaleString() : '—'}</p></div>
-                              <div><p className="text-xs text-muted-foreground">Questions</p><p>{e.num_questions ?? '—'}</p></div>
-                              <div><p className="text-xs text-muted-foreground">Duration</p><p>{e.duration ? `${e.duration} mins` : '—'}</p></div>
-                              <div><p className="text-xs text-muted-foreground">Set by</p><p>{e.set_by_name || '—'}</p></div>
-                              <div><p className="text-xs text-muted-foreground">Link</p><p>{e.exam_link ? <a href={e.exam_link} target="_blank" rel="noopener noreferrer" className="text-primary underline" onClick={(ev) => ev.stopPropagation()}>Open Link</a> : '—'}</p></div>
-                              {e.instructions && <div className="col-span-2"><p className="text-xs text-muted-foreground">Instructions</p><p>{e.instructions}</p></div>}
-                            </div>
-                            <div className="flex flex-wrap gap-2">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/50">
+                          <th className="text-left p-4 font-semibold">Title</th>
+                          <th className="text-left p-4 font-semibold">Course</th>
+                          <th className="text-left p-4 font-semibold">Start</th>
+                          <th className="text-left p-4 font-semibold">End</th>
+                          <th className="text-left p-4 font-semibold">Link</th>
+                          <th className="text-left p-4 font-semibold">Approval</th>
+                          <th className="text-left p-4 font-semibold"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {exams.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No exams scheduled yet</td></tr>}
+                        {exams.map((e: any) => (
+                          <tr key={e.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                            <td className="p-4 font-medium">{e.title}</td>
+                            <td className="p-4 text-muted-foreground">{e.course}</td>
+                            <td className="p-4 text-muted-foreground text-xs">{e.start_time ? new Date(e.start_time).toLocaleString() : '—'}</td>
+                            <td className="p-4 text-muted-foreground text-xs">{e.end_time ? new Date(e.end_time).toLocaleString() : '—'}</td>
+                            <td className="p-4 text-xs">
+                              {e.exam_link ? <a href={e.exam_link} target="_blank" rel="noopener noreferrer" className="text-primary underline">Open Link</a> : '—'}
+                            </td>
+                            <td className="p-4">
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${e.approval_status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                {e.approval_status === 'approved' ? 'Approved' : 'Pending'}
+                              </span>
+                            </td>
+                            <td className="p-4 flex gap-2">
                               {isSuperAdmin && e.approval_status !== 'approved' && (
                                 <Button size="sm" onClick={async () => {
                                   try {
@@ -2780,7 +2775,7 @@ const exportData = async (type: string) => {
                                 } catch (err: any) { toast.error(err.message); }
                               }} className="text-accent border-accent/30">Hold</Button>
                               {isSuperAdmin && (
-                                <Button size="sm" variant="outline" onClick={async () => {
+                                <button onClick={async () => {
                                   try {
                                     const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                                     const csrfToken = await getCsrfToken();
@@ -2788,14 +2783,11 @@ const exportData = async (type: string) => {
                                     setExams(prev => prev.filter(x => x.id !== e.id));
                                     toast.success('Exam deleted');
                                   } catch (err: any) { toast.error(err.message); }
-                                }} className="text-destructive border-destructive/30">Delete</Button>
+                                }} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
                               )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      );
-                    })}
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -2931,49 +2923,48 @@ const exportData = async (type: string) => {
               </div>
             </div>
           )}
-          {activeTab === "settings" && (
+          {activeTab === "settings" && isSuperAdmin && (
             <div className="space-y-6 max-w-2xl">
               <h2 className="font-heading text-lg font-bold text-foreground">Settings</h2>
+              <div className="bg-card rounded-xl border border-border p-6 space-y-4">
+                <h3 className="font-heading font-semibold text-foreground">Institute Information</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-foreground block mb-1.5">Institute Name</label>
+                    <input className={inputClass} defaultValue="Allāhul Musta'ān Institute for Teaching Arabic Language" readOnly />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground block mb-1.5">Contact Number</label>
+                    <input
+                      className={inputClass}
+                      value={settings.contactNumber}
+                      onChange={(e) => setSettings({ ...settings, contactNumber: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground block mb-1.5">Email</label>
+                    <input
+                      className={inputClass}
+                      value={settings.email}
+                      onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <Button onClick={saveSettings} disabled={settingsSaving}>
+                    {settingsSaving ? 'Saving...' : 'Save Settings'}
+                  </Button>
+                </div>
+              </div>
               {isSuperAdmin && (
-                <>
-                  <div className="bg-card rounded-xl border border-border p-6 space-y-4">
-                    <h3 className="font-heading font-semibold text-foreground">Institute Information</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm font-medium text-foreground block mb-1.5">Institute Name</label>
-                        <input className={inputClass} defaultValue="Allāhul Musta'ān Institute for Teaching Arabic Language" readOnly />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground block mb-1.5">Contact Number</label>
-                        <input
-                          className={inputClass}
-                          value={settings.contactNumber}
-                          onChange={(e) => setSettings({ ...settings, contactNumber: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-foreground block mb-1.5">Email</label>
-                        <input
-                          className={inputClass}
-                          value={settings.email}
-                          onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                    <div className="pt-2">
-                      <Button onClick={saveSettings} disabled={settingsSaving}>
-                        {settingsSaving ? 'Saving...' : 'Save Settings'}
-                      </Button>
-                    </div>
-                  </div>
-                  <FeeSettingsTab />
-                  <div className="bg-card rounded-xl border border-border p-6">
-                    <h3 className="font-heading font-semibold text-foreground mb-3">Data Management</h3>
-                    <p className="text-sm text-muted-foreground mb-4">Export or manage stored data.</p>
-                    <Button variant="outline" className="gap-2"><Download size={16} /> Export Data</Button>
-                  </div>
-                </>
+                <FeeSettingsTab />
               )}
+
+              <div className="bg-card rounded-xl border border-border p-6">
+                <h3 className="font-heading font-semibold text-foreground mb-3">Data Management</h3>
+                <p className="text-sm text-muted-foreground mb-4">Export or manage stored data.</p>
+                <Button variant="outline" className="gap-2"><Download size={16} /> Export Data</Button>
+              </div>
               <div className="bg-card rounded-xl border border-border p-6 space-y-4">
                 <h3 className="font-heading font-semibold text-foreground">Change Password</h3>
                 <p className="text-sm text-muted-foreground">Update your account password.</p>

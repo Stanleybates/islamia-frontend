@@ -259,7 +259,6 @@ const ChangePasswordForm = () => {
         body: JSON.stringify({ currentPassword, password: newPassword }),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.message || 'Failed to update password'); return; }
       setSuccess('Password updated successfully!');
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
     } catch (e: any) { setError(e.message); }
