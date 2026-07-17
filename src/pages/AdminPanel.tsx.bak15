@@ -129,8 +129,6 @@ const FeeSettingsTab = () => {
   const [admissionStart, setAdmissionStart] = React.useState('');
   const [examWindowStart, setExamWindowStart] = React.useState('');
   const [examWindowEnd, setExamWindowEnd] = React.useState('');
-  const [vacationDays, setVacationDays] = React.useState('');
-  const [reopeningDate, setReopeningDate] = React.useState('');
   const [admissionEnd, setAdmissionEnd] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [notifying, setNotifying] = React.useState(false);
@@ -155,8 +153,6 @@ const FeeSettingsTab = () => {
         if (d.admissionStart || d.admission_start || d.semesterStart || d.semester_start) setAdmissionStart(d.admissionStart || d.admission_start || d.semesterStart || d.semester_start);
         if (d.examWindowStart) setExamWindowStart(d.examWindowStart);
         if (d.examWindowEnd) setExamWindowEnd(d.examWindowEnd);
-        if (d.vacationDays) setVacationDays(String(d.vacationDays));
-        if (d.reopeningDate) setReopeningDate(d.reopeningDate);
         if (d.admissionEnd || d.admission_end || d.semesterEnd || d.semester_end) setAdmissionEnd(d.admissionEnd || d.admission_end || d.semesterEnd || d.semester_end);
       })
       .catch(() => {});
@@ -175,7 +171,7 @@ const FeeSettingsTab = () => {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
-        body: JSON.stringify({ semester, fee: Number(fee), admissionStart, admissionEnd, examWindowStart, examWindowEnd, vacationDays: vacationDays ? Number(vacationDays) : null, reopeningDate }),
+        body: JSON.stringify({ semester, fee: Number(fee), admissionStart, admissionEnd, examWindowStart, examWindowEnd }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -229,24 +225,6 @@ const FeeSettingsTab = () => {
           <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
             <p><span className="font-medium text-foreground">Exam Window:</span> {formatSemesterDate(examWindowStart)} → {formatSemesterDate(examWindowEnd)}</p>
             <p className="mt-1 text-muted-foreground">Sub-admins can only schedule exams within this window.</p>
-          </div>
-        )}
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="text-sm font-medium block mb-1">Vacation Length (days)</label>
-            <input type="number" min="0" value={vacationDays} onChange={e => setVacationDays(e.target.value)} className="w-full px-3 py-2 border rounded text-sm" placeholder="e.g. 14" />
-          </div>
-          <div>
-            <label className="text-sm font-medium block mb-1">Reopening Date</label>
-            <input type="date" value={reopeningDate} onChange={e => setReopeningDate(e.target.value)} className="w-full px-3 py-2 border rounded text-sm" />
-          </div>
-        </div>
-        {(vacationDays || reopeningDate) && (
-          <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-            {examWindowEnd && <p><span className="font-medium text-foreground">Vacation Starts:</span> {formatSemesterDate(new Date(new Date(examWindowEnd).getTime() + 86400000).toISOString().slice(0, 10))}</p>}
-            {vacationDays && <p><span className="font-medium text-foreground">Vacation Length:</span> {vacationDays} day{Number(vacationDays) === 1 ? '' : 's'}</p>}
-            <p><span className="font-medium text-foreground">Reopening Date:</span> {formatSemesterDate(reopeningDate)}</p>
-            <p className="mt-1 text-muted-foreground">Eligible students are automatically promoted to the next semester on the reopening date.</p>
           </div>
         )}
         <div className="flex gap-3">
