@@ -60,14 +60,6 @@ const PaymentSection = () => {
       setAdmissionId(code.toUpperCase());
       lookupAdmission(code);
     }
-    // Manually scroll to the payments section - React renders this content
-    // after the initial page load, so the browser's native scroll-to-hash
-    // (which only works if the element exists at load time) doesn't fire.
-    if (window.location.hash === '#payments') {
-      setTimeout(() => {
-        document.getElementById('payments')?.scrollIntoView({ behavior: 'smooth' });
-      }, 300);
-    }
     return () => clearInterval(interval);
   }, []);
 
