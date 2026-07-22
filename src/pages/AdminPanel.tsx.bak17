@@ -126,7 +126,6 @@ const validateAdminPassword = (password: string): string[] => {
 const FeeSettingsTab = () => {
   const [semester, setSemester] = React.useState('');
   const [fee, setFee] = React.useState('');
-  const [semesterFees, setSemesterFees] = React.useState<Record<string, string>>({});
   const [admissionStart, setAdmissionStart] = React.useState('');
   const [examWindowStart, setExamWindowStart] = React.useState('');
   const [examWindowEnd, setExamWindowEnd] = React.useState('');
@@ -153,9 +152,6 @@ const FeeSettingsTab = () => {
       .then(d => {
         if (d.semester) setSemester(d.semester);
         if (d.fee) setFee(String(d.fee));
-        if (d.semesterFees) {
-          try { setSemesterFees(JSON.parse(d.semesterFees)); } catch { /* ignore parse errors */ }
-        }
         if (d.admissionStart || d.admission_start || d.semesterStart || d.semester_start) setAdmissionStart(d.admissionStart || d.admission_start || d.semesterStart || d.semester_start);
         if (d.examWindowStart) setExamWindowStart(d.examWindowStart);
         if (d.examWindowEnd) setExamWindowEnd(d.examWindowEnd);
@@ -179,7 +175,7 @@ const FeeSettingsTab = () => {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
-        body: JSON.stringify({ semester, fee: Number(fee), admissionStart, admissionEnd, examWindowStart, examWindowEnd, vacationDays: vacationDays ? Number(vacationDays) : null, reopeningDate, semesterFees }),
+        body: JSON.stringify({ semester, fee: Number(fee), admissionStart, admissionEnd, examWindowStart, examWindowEnd, vacationDays: vacationDays ? Number(vacationDays) : null, reopeningDate }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -204,16 +200,6 @@ const FeeSettingsTab = () => {
         <div>
           <label className="text-sm font-medium block mb-1">Semester Fee (GHS)</label>
           <input type="number" value={fee} onChange={e => setFee(e.target.value)} className="w-full px-3 py-2 border rounded text-sm" placeholder="e.g. 500" />
-          <p className="text-xs text-muted-foreground mt-1">This is the default fee shown to new applicants. Continuing students pay the fee set for their specific semester below.</p>
-        </div>
-        <div>
-          <label className="text-sm font-medium block mb-2">Per-Semester Fees (GHS) — for continuing students</label>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div><label className="text-xs text-muted-foreground block mb-1">Semester 1 (Foundation)</label><input type="number" value={semesterFees["Semester 1 (Foundation)"] || ""} onChange={e => setSemesterFees({ ...semesterFees, "Semester 1 (Foundation)": e.target.value })} className="w-full px-3 py-2 border rounded text-sm" placeholder="e.g. 500" /></div>
-            <div><label className="text-xs text-muted-foreground block mb-1">Semester 2 (Intermediate)</label><input type="number" value={semesterFees["Semester 2 (Intermediate)"] || ""} onChange={e => setSemesterFees({ ...semesterFees, "Semester 2 (Intermediate)": e.target.value })} className="w-full px-3 py-2 border rounded text-sm" placeholder="e.g. 500" /></div>
-            <div><label className="text-xs text-muted-foreground block mb-1">Semester 3 (Advanced)</label><input type="number" value={semesterFees["Semester 3 (Advanced)"] || ""} onChange={e => setSemesterFees({ ...semesterFees, "Semester 3 (Advanced)": e.target.value })} className="w-full px-3 py-2 border rounded text-sm" placeholder="e.g. 500" /></div>
-            <div><label className="text-xs text-muted-foreground block mb-1">Semester 4 (Specialization)</label><input type="number" value={semesterFees["Semester 4 (Specialization)"] || ""} onChange={e => setSemesterFees({ ...semesterFees, "Semester 4 (Specialization)": e.target.value })} className="w-full px-3 py-2 border rounded text-sm" placeholder="e.g. 500" /></div>
-          </div>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div>

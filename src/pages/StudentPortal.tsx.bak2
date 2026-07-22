@@ -3,7 +3,7 @@ import apiClient from "@/lib/apiClient";
 import { apiUrl } from '@/lib/apiClient';
 import { getCsrfToken } from '@/lib/csrf';
 import { Link } from "react-router-dom";
-import { BookOpen, GraduationCap, Bell, User, LogOut, Home, Clock, Award, Eye, EyeOff, KeyRound, Phone, ClipboardList, FileText, CheckCircle2 } from "lucide-react";
+import { BookOpen, GraduationCap, Bell, User, LogOut, Home, Clock, Award, Eye, EyeOff, KeyRound, Phone, ClipboardList, FileText, CheckCircle2, CreditCard } from "lucide-react";
 import { jsPDF } from "jspdf";
 import useSessionTimeout from "@/hooks/useSessionTimeout";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,37 @@ import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from 
 
 
 const StudentPortal = () => {
+  const [feeStatus, setFeeStatus] = useState<{ semester: string | null; fee: number | null; alreadyPaid: boolean } | null>(null);
+  const [feePaying, setFeePaying] = useState(false);
+
+  const loadFeeStatus = async () => {
+    try {
+      const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
+      const token = s?.token;
+      const res = await fetch(apiUrl('/api/student/fee-status'), { headers: { Authorization: 'Bearer ' + token } });
+      if (res.ok) setFeeStatus(await res.json());
+    } catch (e) { console.error('Fee status fetch error:', e); }
+  };
+
+  const handlePayFee = async () => {
+    setFeePaying(true);
+    try {
+      const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
+      const indexNumber = s?.index_number || s?.indexNumber || s?.regNumber;
+      const res = await fetch(apiUrl('/api/payment/initialize-continuing'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ indexNumber }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to start payment');
+      window.location.href = data.authorization_url;
+    } catch (e: any) {
+      toast.error(e.message || 'Could not start payment');
+      setFeePaying(false);
+    }
+  };
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState<"dashboard" | "courses" | "assessments" | "results" | "notifications" | "security" | "timetable">("dashboard");
   const [showPassword, setShowPassword] = useState(false);
@@ -273,7 +304,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
-        body: JSON.stringify({ email: forgotEmail }),
+        body: JSON.stringify({ email: forgotEmail.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Email not found');
@@ -713,6 +744,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
           {[
             { key: "dashboard", label: "Dashboard", icon: Home },
             { key: "courses", label: "My Courses", icon: BookOpen },
+            { key: "fees", label: "Fees", icon: CreditCard },
             { key: "assessments", label: "Assessments", icon: ClipboardList },
             { key: "results", label: "Results", icon: Award },
             { key: "notifications", label: "Notifications", icon: Bell, badge: portalNotifications.filter((n: any) => !n.read).length },
@@ -744,7 +776,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary"><BookOpen size={20} /></div>
                   <div>
-                    <p className="text-2xl font-bold text-foreground">3</p>
+                    <p className="text-2xl font-bold text-foreground">{studentCourses.length}</p>
                     <p className="text-xs text-muted-foreground">Enrolled Courses</p>
                   </div>
                 </div>
@@ -762,7 +794,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary"><GraduationCap size={20} /></div>
                   <div>
-                    <p className="text-2xl font-bold text-foreground">{semesterSettings.semester || 'Semester 1'}</p>
+                    <p className="text-2xl font-bold text-foreground">{session.semester || 'Semester 1'}</p>
                     <p className="text-xs text-muted-foreground">Current Semester</p>
                   </div>
                 </div>
@@ -844,6 +876,44 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                 </Button>
               </div>
             ))}
+          </div>
+        )}
+
+        {activeTab === "fees" && (
+          <div className="space-y-4">
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h3 className="font-heading text-lg font-semibold text-foreground mb-1">Semester Fee</h3>
+              {!feeStatus ? (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              ) : feeStatus.semester === 'Graduated' ? (
+                <p className="text-sm text-muted-foreground">You have graduated - no further semester fees apply.</p>
+              ) : !feeStatus.semester ? (
+                <p className="text-sm text-muted-foreground">No active semester found on your account.</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm space-y-1">
+                    <p><span className="font-medium text-foreground">Current Semester:</span> {feeStatus.semester}</p>
+                    <p><span className="font-medium text-foreground">Fee:</span> {feeStatus.fee != null ? `GHS ${feeStatus.fee}` : 'Not yet set by the institute'}</p>
+                    <p><span className="font-medium text-foreground">Status:</span>{" "}
+                      <span className={feeStatus.alreadyPaid ? "text-green-600" : "text-amber-600"}>
+                        {feeStatus.alreadyPaid ? "Paid" : "Not Paid"}
+                      </span>
+                    </p>
+                  </div>
+                  {!feeStatus.alreadyPaid && feeStatus.fee != null && (
+                    <Button variant="gold" onClick={handlePayFee} disabled={feePaying}>
+                      {feePaying ? 'Opening checkout...' : `Pay GHS ${feeStatus.fee} Now`}
+                    </Button>
+                  )}
+                  {feeStatus.alreadyPaid && (
+                    <p className="text-sm text-green-600">You're all set - you can register for your courses in the "My Courses" tab.</p>
+                  )}
+                  {!feeStatus.alreadyPaid && (
+                    <p className="text-xs text-muted-foreground">You must pay this fee before you can register for courses this semester.</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
