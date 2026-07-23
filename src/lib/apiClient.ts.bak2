@@ -17,7 +17,7 @@ export function apiUrl(path: string) {
 // "CSRF token missing" even when the x-csrf-token header is present,
 // because the cookie half of the pair never gets sent.
 export function apiFetch(url: string, options: RequestInit = {}) {
-  return fetch(url, { ...options, credentials: 'include' });
+  return fetch(url, { credentials: 'include', ...options, credentials: 'include' });
 }
 
 async function fetchJson(path: string, body?: any) {

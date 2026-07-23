@@ -15,7 +15,7 @@ import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from 
 import logo from "@/assets/logo.png";
 import adminBg from "@/assets/admin-bg.webp";
 import { supabase } from "@/integrations/supabase/client";
-import { apiUrl, apiFetch } from "@/lib/apiClient";
+import { apiUrl } from "@/lib/apiClient";
 import { getCsrfToken } from "@/lib/csrf";
 import { jsPDF } from "jspdf";
 
@@ -148,7 +148,7 @@ const FeeSettingsTab = () => {
     const token = s?.token;
     const headers: any = { Authorization: 'Bearer ' + token };
     // fetch settings
-    apiFetch(apiUrl('/api/admin/settings'), { headers })
+    fetch(apiUrl('/api/admin/settings'), { headers })
       .then(r => r.json())
       .then(d => {
         if (d.semester) setSemester(d.semester);
@@ -289,7 +289,7 @@ const ChangePasswordForm = () => {
       const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
       const token = s?.token;
       const csrfToken = await getCsrfToken();
-      const res = await apiFetch(apiUrl('/api/admin/change-password'), {
+      const res = await fetch(apiUrl('/api/admin/change-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
         body: JSON.stringify({ currentPassword, password: newPassword }),
@@ -410,12 +410,12 @@ const AdminPanel = () => {
       if (!token) return;
       const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
       const [gradesRes, adminsRes, paymentsRes, statsRes, studentsRes, coursesRes] = await Promise.all([
-        apiFetch(apiUrl('/api/admin/grades'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/admins'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/payments'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/students'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/courses'), { headers }).then(r => r.ok ? r.json() : null),
+        fetch(apiUrl('/api/admin/grades'), { headers }).then(r => r.ok ? r.json() : null),
+        fetch(apiUrl('/api/admin/admins'), { headers }).then(r => r.ok ? r.json() : null),
+        fetch(apiUrl('/api/admin/payments'), { headers }).then(r => r.ok ? r.json() : null),
+        fetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : null),
+        fetch(apiUrl('/api/admin/students'), { headers }).then(r => r.ok ? r.json() : null),
+        fetch(apiUrl('/api/admin/courses'), { headers }).then(r => r.ok ? r.json() : null),
       ]);
       if (gradesRes?.data) setGrades(gradesRes.data);
       else if (Array.isArray(gradesRes)) setGrades(gradesRes);
@@ -464,12 +464,12 @@ const AdminPanel = () => {
           return;
         }
         // Fetch current admin's full profile including assigned_courses
-        apiFetch(apiUrl('/api/admin/verify'), {
+        fetch(apiUrl('/api/admin/verify'), {
           headers: { Authorization: 'Bearer ' + s.token }
         }).then(r => r.ok ? r.json() : null).then(verified => {
           if (verified) {
             // Get assigned courses from admin accounts list
-            apiFetch(apiUrl('/api/admin/admins'), {
+            fetch(apiUrl('/api/admin/admins'), {
               headers: { Authorization: 'Bearer ' + s.token }
             }).then(r => r.ok ? r.json() : null).then(adminsRes => {
               const adminsList = adminsRes?.data || adminsRes || [];
@@ -509,14 +509,14 @@ const AdminPanel = () => {
           if (token) headers['Authorization'] = 'Bearer ' + token;
 
    const [gradesRes, adminsRes, paymentsRes, statsRes, studentsRes, coursesRes, settingsRes, assessmentsRes] = await Promise.all([
-  apiFetch(apiUrl('/api/admin/grades'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/admins'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/payments'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : {}),
-  apiFetch(apiUrl('/api/admin/students'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/courses'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/settings'), { headers }).then(r => r.ok ? r.json() : {}),
-  apiFetch(apiUrl('/api/admin/assessments'), { headers }).then(r => r.ok ? r.json() : { data: [] }),
+  fetch(apiUrl('/api/admin/grades'), { headers }).then(r => r.ok ? r.json() : []),
+  fetch(apiUrl('/api/admin/admins'), { headers }).then(r => r.ok ? r.json() : []),
+  fetch(apiUrl('/api/admin/payments'), { headers }).then(r => r.ok ? r.json() : []),
+  fetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : {}),
+  fetch(apiUrl('/api/admin/students'), { headers }).then(r => r.ok ? r.json() : []),
+  fetch(apiUrl('/api/admin/courses'), { headers }).then(r => r.ok ? r.json() : []),
+  fetch(apiUrl('/api/admin/settings'), { headers }).then(r => r.ok ? r.json() : {}),
+  fetch(apiUrl('/api/admin/assessments'), { headers }).then(r => r.ok ? r.json() : { data: [] }),
 ]);
 
           if (gradesRes?.data) setGrades(gradesRes.data as any); else if (Array.isArray(gradesRes)) setGrades(gradesRes as any);
@@ -582,11 +582,11 @@ if (studentsRes?.data) {
           if (assessmentsRes?.data) setAssessments(assessmentsRes.data);
       try {
         const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-        const examsRes = await apiFetch(apiUrl('/api/admin/exams'), { headers: { Authorization: 'Bearer ' + s?.token } }).then(r => r.ok ? r.json() : { data: [] });
+        const examsRes = await fetch(apiUrl('/api/admin/exams'), { headers: { Authorization: 'Bearer ' + s?.token } }).then(r => r.ok ? r.json() : { data: [] });
         if (examsRes?.data) setExams(examsRes.data);
-        const resultsRes = await apiFetch(apiUrl('/api/admin/exam-results'), { headers: { Authorization: 'Bearer ' + s?.token } }).then(r => r.ok ? r.json() : { data: [] });
+        const resultsRes = await fetch(apiUrl('/api/admin/exam-results'), { headers: { Authorization: 'Bearer ' + s?.token } }).then(r => r.ok ? r.json() : { data: [] });
         if (resultsRes?.data) setExamResults(resultsRes.data);
-        const scheduleRes = await apiFetch(apiUrl('/api/admin/schedule'), { headers: { Authorization: 'Bearer ' + s?.token } }).then(r => r.ok ? r.json() : { data: [] });
+        const scheduleRes = await fetch(apiUrl('/api/admin/schedule'), { headers: { Authorization: 'Bearer ' + s?.token } }).then(r => r.ok ? r.json() : { data: [] });
         if (scheduleRes?.data) setSchedules(scheduleRes.data);
       } catch(e) { console.error('Exams fetch error:', e); }
         } catch (e) {
@@ -674,7 +674,7 @@ if (studentsRes?.data) {
         const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
         const token = s?.token;
         const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) };
-       const res = await apiFetch(apiUrl('/api/admin/applications'), { headers });
+       const res = await fetch(apiUrl('/api/admin/applications'), { headers });
         const json = await res.json();
         const fromBackend = (json.data ?? []).map((r) => ({
           id: 'APP-' + String(r.id).padStart(4, '0'),
@@ -746,7 +746,7 @@ if (studentsRes?.data) {
   const approveGradeBackend = async (gradeId: any) => {
     try {
       const headers = await getAuthHeader();
-      const res = await apiFetch(apiUrl('/api/admin/grades/approve/' + gradeId), { method: 'PUT', headers });
+      const res = await fetch(apiUrl('/api/admin/grades/approve/' + gradeId), { method: 'PUT', headers });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
       setGrades((g) => g.map(x => String(x.id) === String(updated.id) ? updated : x));
@@ -757,7 +757,7 @@ if (studentsRes?.data) {
   const deleteGradeBackend = async (gradeId: any) => {
     try {
       const headers = await getAuthHeader();
-      const res = await apiFetch(apiUrl('/api/admin/grades/' + gradeId), { method: 'DELETE', headers });
+      const res = await fetch(apiUrl('/api/admin/grades/' + gradeId), { method: 'DELETE', headers });
       if (!res.ok) throw new Error('Failed');
       setGrades((g) => g.filter(x => x.id !== gradeId));
       toast.success('Grade deleted');
@@ -766,7 +766,7 @@ if (studentsRes?.data) {
  const saveSettings = async () => {
   setSettingsSaving(true);
   try {
-    const res = await apiFetch(apiUrl('/api/admin/settings'), { method: 'PUT', headers: await getAuthHeader(), body: JSON.stringify(settings) });
+    const res = await fetch(apiUrl('/api/admin/settings'), { method: 'PUT', headers: await getAuthHeader(), body: JSON.stringify(settings) });
     if (res.ok) toast.success('Settings saved successfully');
     else toast.error('Failed to save settings');
   } catch { toast.error('Failed to save settings'); }
@@ -788,7 +788,7 @@ const exportData = async (type: string) => {
   const approveAdminBackend = async (userId: any) => {
     try {
       const headers = await getAuthHeader();
-      const res = await apiFetch(apiUrl('/api/admin/admins/approve/' + userId), { method: 'PUT', headers });
+      const res = await fetch(apiUrl('/api/admin/admins/approve/' + userId), { method: 'PUT', headers });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
       // capture previous state for undo
@@ -809,7 +809,7 @@ const exportData = async (type: string) => {
   const deleteAdminBackend = async (userId: any) => {
     try {
       const headers = await getAuthHeader();
-      const res = await apiFetch(apiUrl('/api/admin/admins/' + userId), { method: 'DELETE', headers });
+      const res = await fetch(apiUrl('/api/admin/admins/' + userId), { method: 'DELETE', headers });
       if (!res.ok) throw new Error('Failed');
       let deleted: any | null = null;
       setAdminAccounts((a) => {
@@ -831,7 +831,7 @@ const exportData = async (type: string) => {
   const denyAdminBackend = async (userId: any) => {
     try {
       const headers = await getAuthHeader();
-      const res = await apiFetch(apiUrl('/api/admin/admins/deny/' + userId), { method: 'PUT', headers });
+      const res = await fetch(apiUrl('/api/admin/admins/deny/' + userId), { method: 'PUT', headers });
       if (!res.ok) throw new Error('Failed');
       const updated = await res.json();
       const prevItem = adminAccounts.find(x => String(x.id) === String(updated.id));
@@ -850,7 +850,7 @@ const exportData = async (type: string) => {
       const session = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
       const token = session?.token;
       const csrfToken = await getCsrfToken();
-      const res = await apiFetch(apiUrl(`/api/admin/admins/${userId}/assign-courses`), {
+      const res = await fetch(apiUrl(`/api/admin/admins/${userId}/assign-courses`), {
         method: 'PUT',
         credentials: 'include',
         headers: {
@@ -867,7 +867,7 @@ const exportData = async (type: string) => {
     }
     try {
       const headers = await getAuthHeader();
-      const res = await apiFetch(apiUrl('/api/admin/admins/' + userId), {
+      const res = await fetch(apiUrl('/api/admin/admins/' + userId), {
         method: 'PUT',
         headers,
         body: JSON.stringify({ role, admin_status, assignedCourses, assigned_courses: assignedCourses }),
@@ -942,7 +942,7 @@ const exportData = async (type: string) => {
 
     try {
       // Look up student by index number
-      const studentRes = await apiFetch(apiUrl('/api/admin/students'), { headers });
+      const studentRes = await fetch(apiUrl('/api/admin/students'), { headers });
       const studentData = await studentRes.json();
       const studentList = studentData.data || studentData;
       const student = studentList.find((s: any) => s.index_number === newGrade.student.trim());
@@ -952,7 +952,7 @@ const exportData = async (type: string) => {
         return;
       }
 
-      const res = await apiFetch(apiUrl('/api/admin/grades'), {
+      const res = await fetch(apiUrl('/api/admin/grades'), {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -990,7 +990,7 @@ const exportData = async (type: string) => {
     try {
       const csrfToken = await getCsrfToken();
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}`, 'x-csrf-token': csrfToken };
-      const res = await apiFetch(apiUrl('/api/admin/grades/' + gradeRow.id), {
+      const res = await fetch(apiUrl('/api/admin/grades/' + gradeRow.id), {
         method: 'PUT',
         headers,
         body: JSON.stringify({ midterm, final: final_, grade }),
@@ -1030,7 +1030,7 @@ const exportData = async (type: string) => {
       const csrfToken = await getCsrfToken();
       const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      const res = await apiFetch(apiUrl('/api/admin/courses'), { method: 'POST', headers, body: JSON.stringify({ title: newCourse.title, semester: newCourse.semester, status: 'Upcoming' }) });
+      const res = await fetch(apiUrl('/api/admin/courses'), { method: 'POST', headers, body: JSON.stringify({ title: newCourse.title, semester: newCourse.semester, status: 'Upcoming' }) });
       const created = await res.json();
       setCourses(prev => [...prev, { id: String(created.id), title: created.title, semester: created.semester, enrolled: created.enrolled || 0, status: created.status }]);
     } catch (e: any) { toast.error(e.message); }
@@ -1053,7 +1053,7 @@ const exportData = async (type: string) => {
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
         // Update application status first
-        const res = await apiFetch(apiUrl('/api/admin/applications/' + parseInt(dbId)), {
+        const res = await fetch(apiUrl('/api/admin/applications/' + parseInt(dbId)), {
           method: 'PUT', headers,
           body: JSON.stringify({ status }),
         });
@@ -1070,7 +1070,7 @@ const exportData = async (type: string) => {
             const csrfToken2 = await getCsrfToken();
             const headers2: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken2 };
             if (token2) headers2['Authorization'] = `Bearer ${token2}`;
-            await apiFetch(apiUrl('/api/admin/applications/' + parseInt(dbId)), { method: 'PUT', headers: headers2, body: JSON.stringify({ status: prevApp?.status || 'Pending' }) });
+            await fetch(apiUrl('/api/admin/applications/' + parseInt(dbId)), { method: 'PUT', headers: headers2, body: JSON.stringify({ status: prevApp?.status || 'Pending' }) });
           } catch (e) {
             // ignore backend revert errors
           }
@@ -1599,7 +1599,7 @@ const exportData = async (type: string) => {
                             const csrfToken = await getCsrfToken();
                             const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
                             if (token) headers['Authorization'] = `Bearer ${token}`;
-                            const res = await apiFetch(apiUrl('/api/admin/courses/' + c.id), { method: 'PUT', headers, body: JSON.stringify({ status: 'Active' }) });
+                            const res = await fetch(apiUrl('/api/admin/courses/' + c.id), { method: 'PUT', headers, body: JSON.stringify({ status: 'Active' }) });
                             if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Failed to activate course'); }
                             const updated = await res.json();
                             setCourses(prev => prev.map(x => x.id === c.id ? { ...x, status: updated.status } : x));
@@ -1613,7 +1613,7 @@ const exportData = async (type: string) => {
                             const csrfToken = await getCsrfToken();
                             const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
                             if (token) headers['Authorization'] = `Bearer ${token}`;
-                            const res = await apiFetch(apiUrl('/api/admin/courses/' + c.id), { method: 'DELETE', headers });
+                            const res = await fetch(apiUrl('/api/admin/courses/' + c.id), { method: 'DELETE', headers });
                             setCourses(prev => prev.filter(x => x.id !== c.id));
                             toast.success('Course deleted');
                           } catch (e: any) { toast.error(e.message); }
@@ -1923,7 +1923,7 @@ const exportData = async (type: string) => {
                           try {
                             const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                             const csrfToken = await getCsrfToken();
-                            const res = await apiFetch(apiUrl('/api/admin/schedule'), {
+                            const res = await fetch(apiUrl('/api/admin/schedule'), {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken },
                               body: JSON.stringify(newSchedule),
@@ -1968,7 +1968,7 @@ const exportData = async (type: string) => {
                                 try {
                                   const sess = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                                   const csrfToken = await getCsrfToken();
-                                  await apiFetch(apiUrl('/api/admin/schedule/' + s.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + sess?.token, 'x-csrf-token': csrfToken } });
+                                  await fetch(apiUrl('/api/admin/schedule/' + s.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + sess?.token, 'x-csrf-token': csrfToken } });
                                   setSchedules(prev => prev.filter((x: any) => x.id !== s.id));
                                   toast.success('Removed');
                                 } catch(e: any) { toast.error(e.message); }
@@ -2152,7 +2152,7 @@ const exportData = async (type: string) => {
                         const csrfToken = await getCsrfToken();
                         const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
                         if (token) headers['Authorization'] = `Bearer ${token}`;
-                        const res = await apiFetch(apiUrl('/api/admin/signup'), {
+                        const res = await fetch(apiUrl('/api/admin/signup'), {
                           method: 'POST',
                           headers,
                           body: JSON.stringify({ username: newStaff.name, email: newStaff.email, phone: newStaff.contact, password: newStaff.course, confirmPassword: newStaff.department }),
@@ -2200,7 +2200,7 @@ const exportData = async (type: string) => {
                                 try {
                                   const tok = JSON.parse(localStorage.getItem('ami_admin_session') || '{}')?.token;
                                   const csrfToken = await getCsrfToken();
-                                  await apiFetch(apiUrl('/api/admin/admins/' + s.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + tok, 'x-csrf-token': csrfToken } });
+                                  await fetch(apiUrl('/api/admin/admins/' + s.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + tok, 'x-csrf-token': csrfToken } });
                                   setAdminAccounts(prev => prev.filter((x: any) => x.id !== s.id));
                                   toast.success('Staff removed');
                                 } catch (e: any) { toast.error(e.message); }
@@ -2560,7 +2560,7 @@ const exportData = async (type: string) => {
                           // uploads from super admins are published immediately so they appear in sub-admin and student portals
                           approval_status: 'approved'
                         };
-                        const res = await apiFetch(apiUrl('/api/admin/assessments'), { method: 'POST', headers, body: JSON.stringify(payload) });
+                        const res = await fetch(apiUrl('/api/admin/assessments'), { method: 'POST', headers, body: JSON.stringify(payload) });
                         if (!res.ok) {
                           let msg = 'Something went wrong. Please check your connection and try again.';
                           try { const e = await res.json(); msg = e.message || msg; } catch {}
@@ -2616,7 +2616,7 @@ const exportData = async (type: string) => {
                                 const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                                 const csrfToken = await getCsrfToken();
                                 const headers: any = { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken };
-                                const res = await apiFetch(apiUrl('/api/admin/assessments/' + a.id + '/approve'), { method: 'PUT', headers });
+                                const res = await fetch(apiUrl('/api/admin/assessments/' + a.id + '/approve'), { method: 'PUT', headers });
                                 if (!res.ok) throw new Error('Failed');
                                 setAssessments(prev => prev.map(x => x.id === a.id ? {...x, approval_status: 'approved'} : x));
                                 toast.success('Assessment approved — now visible to students');
@@ -2628,7 +2628,7 @@ const exportData = async (type: string) => {
                               try {
                                 const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                                 const csrfToken = await getCsrfToken();
-                                await apiFetch(apiUrl('/api/admin/assessments/' + a.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken } });
+                                await fetch(apiUrl('/api/admin/assessments/' + a.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken } });
                                 setAssessments(prev => prev.filter(x => x.id !== a.id));
                                 toast.success('Assessment deleted');
                               } catch (e: any) { toast.error(e.message); }
@@ -2684,7 +2684,7 @@ const exportData = async (type: string) => {
                             try {
                               const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                               const csrfToken = await getCsrfToken();
-                              const res = await apiFetch(apiUrl('/api/admin/exams/check-clash'), {
+                              const res = await fetch(apiUrl('/api/admin/exams/check-clash'), {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken },
                                 body: JSON.stringify({ course: newExam.course, start_time: newExam.start_time, end_time: end }),
@@ -2720,7 +2720,7 @@ const exportData = async (type: string) => {
                             const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                             const csrfToken = await getCsrfToken();
                             const headers: any = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken };
-                            const res = await apiFetch(apiUrl('/api/admin/exams'), { method: 'POST', headers, body: JSON.stringify(newExam) });
+                            const res = await fetch(apiUrl('/api/admin/exams'), { method: 'POST', headers, body: JSON.stringify(newExam) });
                             if (!res.ok) {
                               let msg = 'Something went wrong. Please check your connection and try again.';
                               try { const e = await res.json(); msg = e.message || msg; } catch {}
@@ -2776,7 +2776,7 @@ const exportData = async (type: string) => {
                                   try {
                                     const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                                     const csrfToken = await getCsrfToken();
-                                    const res = await apiFetch(apiUrl('/api/admin/exams/' + e.id + '/approve'), { method: 'PUT', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken } });
+                                    const res = await fetch(apiUrl('/api/admin/exams/' + e.id + '/approve'), { method: 'PUT', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken } });
                                     if (!res.ok) throw new Error('Failed');
                                     setExams(prev => prev.map(x => x.id === e.id ? {...x, approval_status: 'approved'} : x));
                                     toast.success('Exam approved');
@@ -2790,7 +2790,7 @@ const exportData = async (type: string) => {
                                 try {
                                   const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                                   const csrfToken = await getCsrfToken();
-                                  const res = await apiFetch(apiUrl('/api/admin/exams/' + e.id), {
+                                  const res = await fetch(apiUrl('/api/admin/exams/' + e.id), {
                                     method: 'PUT',
                                     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken },
                                     body: JSON.stringify({ start_time: newStart, end_time: newEnd }),
@@ -2805,7 +2805,7 @@ const exportData = async (type: string) => {
                                 try {
                                   const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                                   const csrfToken = await getCsrfToken();
-                                  const res = await apiFetch(apiUrl('/api/admin/exams/' + e.id), {
+                                  const res = await fetch(apiUrl('/api/admin/exams/' + e.id), {
                                     method: 'PUT',
                                     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken },
                                     body: JSON.stringify({ status: 'on_hold' }),
@@ -2820,7 +2820,7 @@ const exportData = async (type: string) => {
                                   try {
                                     const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                                     const csrfToken = await getCsrfToken();
-                                    await apiFetch(apiUrl('/api/admin/exams/' + e.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken } });
+                                    await fetch(apiUrl('/api/admin/exams/' + e.id), { method: 'DELETE', credentials: 'include', headers: { Authorization: 'Bearer ' + s?.token, 'x-csrf-token': csrfToken } });
                                     setExams(prev => prev.filter(x => x.id !== e.id));
                                     toast.success('Exam deleted');
                                   } catch (err: any) { toast.error(err.message); }

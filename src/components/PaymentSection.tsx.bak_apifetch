@@ -1,6 +1,6 @@
 import { Smartphone, Building2, CreditCard, ShieldCheck, Lock, Loader2, XCircle, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { apiUrl, apiFetch } from '@/lib/apiClient';
+import { apiUrl } from '@/lib/apiClient';
 import { toast } from 'sonner';
 import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from '@/lib/semester-settings';
 
@@ -32,7 +32,7 @@ const PaymentSection = () => {
     if (cached.fee) setFee(Number(cached.fee));
     if (cached.admissionStart) setAdmissionStart(cached.admissionStart);
     if (cached.admissionEnd) setAdmissionEnd(cached.admissionEnd);
-      apiFetch(apiUrl('/api/admin/settings'))
+      fetch(apiUrl('/api/admin/settings'))
       .then(r => r.json())
       .then(d => {
         if (d.fee) setFee(Number(d.fee));
@@ -80,7 +80,7 @@ const PaymentSection = () => {
   const lookupAdmission = async (code: string) => {
     if (code.length < 6) return;
     try {
-      const res = await apiFetch(apiUrl('/api/auth/admission-lookup?code=' + encodeURIComponent(code)));
+      const res = await fetch(apiUrl('/api/auth/admission-lookup?code=' + encodeURIComponent(code)));
       const data = await res.json();
       if (res.ok) {
         setIsContinuing(false);
@@ -92,7 +92,7 @@ const PaymentSection = () => {
       }
 
       // Not an application code - try it as a continuing student's index number
-      const res2 = await apiFetch(apiUrl('/api/auth/continuing-lookup?index=' + encodeURIComponent(code)));
+      const res2 = await fetch(apiUrl('/api/auth/continuing-lookup?index=' + encodeURIComponent(code)));
       const data2 = await res2.json();
       if (res2.ok) {
         setIsContinuing(true);
@@ -125,7 +125,7 @@ const PaymentSection = () => {
       setErrorMsg(null);
       toast.loading('Opening secure Paystack checkout...', { id: 'pay' });
       try {
-        const res = await apiFetch(apiUrl('/api/payment/initialize-continuing'), {
+        const res = await fetch(apiUrl('/api/payment/initialize-continuing'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ indexNumber: admissionId }),
@@ -152,7 +152,7 @@ const PaymentSection = () => {
     setErrorMsg(null);
     toast.loading('Opening secure Paystack checkout...', { id: 'pay' });
     try {
-      const res = await apiFetch(apiUrl('/api/payment/initialize'), {
+      const res = await fetch(apiUrl('/api/payment/initialize'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, phoneNumber: phone, channel }),

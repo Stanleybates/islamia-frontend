@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import apiClient from "@/lib/apiClient";
-import { apiUrl, apiFetch } from '@/lib/apiClient';
+import { apiUrl } from '@/lib/apiClient';
 import { getCsrfToken } from '@/lib/csrf';
 import { Link } from "react-router-dom";
 import { BookOpen, GraduationCap, Bell, User, LogOut, Home, Clock, Award, Eye, EyeOff, KeyRound, Phone, ClipboardList, FileText, CheckCircle2, CreditCard } from "lucide-react";
@@ -24,7 +24,7 @@ const StudentPortal = () => {
     try {
       const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
       const token = s?.token;
-      const res = await apiFetch(apiUrl('/api/student/fee-status'), { headers: { Authorization: 'Bearer ' + token } });
+      const res = await fetch(apiUrl('/api/student/fee-status'), { headers: { Authorization: 'Bearer ' + token } });
       if (res.ok) setFeeStatus(await res.json());
     } catch (e) { console.error('Fee status fetch error:', e); }
   };
@@ -34,7 +34,7 @@ const StudentPortal = () => {
     try {
       const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
       const indexNumber = s?.index_number || s?.indexNumber || s?.regNumber;
-      const res = await apiFetch(apiUrl('/api/payment/initialize-continuing'), {
+      const res = await fetch(apiUrl('/api/payment/initialize-continuing'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ indexNumber }),
@@ -93,11 +93,11 @@ const StudentPortal = () => {
     try {
       const headers: any = { Authorization: 'Bearer ' + token };
       const [gradesRes, coursesRes, notifRes, assessmentsRes, gpaRes] = await Promise.all([
-        apiFetch(apiUrl('/api/student/grades'), { headers }).then(r => r.ok ? r.json() : []),
-        apiFetch(apiUrl('/api/student/courses'), { headers }).then(r => r.ok ? r.json() : []),
-        apiFetch(apiUrl('/api/student/notifications'), { headers }).then(r => r.ok ? r.json() : []),
-        apiFetch(apiUrl('/api/student/assessments'), { headers }).then(r => r.ok ? r.json() : []),
-        apiFetch(apiUrl('/api/student/gpa'), { headers }).then(r => r.ok ? r.json() : { gpa: {}, cgpa: 0, totalCredits: 0 }),
+        fetch(apiUrl('/api/student/grades'), { headers }).then(r => r.ok ? r.json() : []),
+        fetch(apiUrl('/api/student/courses'), { headers }).then(r => r.ok ? r.json() : []),
+        fetch(apiUrl('/api/student/notifications'), { headers }).then(r => r.ok ? r.json() : []),
+        fetch(apiUrl('/api/student/assessments'), { headers }).then(r => r.ok ? r.json() : []),
+        fetch(apiUrl('/api/student/gpa'), { headers }).then(r => r.ok ? r.json() : { gpa: {}, cgpa: 0, totalCredits: 0 }),
       ]);
       if (Array.isArray(gradesRes)) {
         setStudentResults(gradesRes.map((g: any) => ({
@@ -126,13 +126,13 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
       // Fetch exams
       try {
-        const examsRes = await apiFetch(apiUrl('/api/student/exams'), { headers }).then(r => r.ok ? r.json() : []);
+        const examsRes = await fetch(apiUrl('/api/student/exams'), { headers }).then(r => r.ok ? r.json() : []);
         if (Array.isArray(examsRes)) setStudentExams(examsRes);
       } catch(e) { console.error('Exams fetch error:', e); }
 
       // Fetch class schedule
       try {
-        const scheduleRes = await apiFetch(apiUrl('/api/student/schedule'), { headers }).then(r => r.ok ? r.json() : []);
+        const scheduleRes = await fetch(apiUrl('/api/student/schedule'), { headers }).then(r => r.ok ? r.json() : []);
         if (Array.isArray(scheduleRes)) setStudentSchedule(scheduleRes);
       } catch(e) { console.error('Schedule fetch error:', e); }
       if (Array.isArray(coursesRes)) {
@@ -154,7 +154,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
     try {
       const cached = readSemesterSettings();
       setSemesterSettings(cached);
-      const res = await apiFetch(apiUrl('/api/admin/settings'));
+      const res = await fetch(apiUrl('/api/admin/settings'));
       const d = await res.json();
       const next = {
         semester: d.semester || cached.semester,
@@ -304,7 +304,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
     if (!checkResetAttempts()) return;
     try {
       const csrfToken = await getCsrfToken();
-      const res = await apiFetch(apiUrl('/api/auth/forgot'), {
+      const res = await fetch(apiUrl('/api/auth/forgot'), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
@@ -421,7 +421,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
       const s = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
       const token = s?.token;
       const csrfToken = await getCsrfToken();
-      const res = await apiFetch(apiUrl('/api/student/change-password'), {
+      const res = await fetch(apiUrl('/api/student/change-password'), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
@@ -861,7 +861,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                     const method = course.enrolled ? 'DELETE' : 'POST';
                     try {
                       const csrfToken = await getCsrfToken();
-                      const res = await apiFetch(apiUrl(`/api/student/courses/${course.id}/enroll`), {
+                      const res = await fetch(apiUrl(`/api/student/courses/${course.id}/enroll`), {
                         method,
                         credentials: 'include',
                         headers: { Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
@@ -1243,7 +1243,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                     const token = s?.token;
                     try {
                       const csrfToken = await getCsrfToken();
-                      await apiFetch(apiUrl('/api/student/notifications/read-all'), {
+                      await fetch(apiUrl('/api/student/notifications/read-all'), {
                         method: 'PUT',
                         credentials: 'include',
                         headers: { Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
@@ -1272,7 +1272,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                       const token = s?.token;
                       try {
                         const csrfToken = await getCsrfToken();
-                        await apiFetch(apiUrl(`/api/student/notifications/${n.id}/read`), {
+                        await fetch(apiUrl(`/api/student/notifications/${n.id}/read`), {
                           method: 'PUT',
                           credentials: 'include',
                           headers: { Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },

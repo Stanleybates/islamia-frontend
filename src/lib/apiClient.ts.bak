@@ -11,15 +11,6 @@ export function apiUrl(path: string) {
   return RAW_BASE + path;
 }
 
-// Wraps fetch to always send credentials (cookies) - required so the
-// csrf_secret cookie actually reaches the backend on cross-subdomain
-// requests. Without this, CSRF-protected endpoints fail with
-// "CSRF token missing" even when the x-csrf-token header is present,
-// because the cookie half of the pair never gets sent.
-export function apiFetch(url: string, options: RequestInit = {}) {
-  return fetch(url, { ...options, credentials: 'include' });
-}
-
 async function fetchJson(path: string, body?: any) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (body) {

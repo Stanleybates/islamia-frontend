@@ -15,7 +15,7 @@ import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from 
 import logo from "@/assets/logo.png";
 import adminBg from "@/assets/admin-bg.webp";
 import { supabase } from "@/integrations/supabase/client";
-import { apiUrl, apiFetch } from "@/lib/apiClient";
+import { apiUrl } from "@/lib/apiClient";
 import { getCsrfToken } from "@/lib/csrf";
 import { jsPDF } from "jspdf";
 
