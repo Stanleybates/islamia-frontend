@@ -11,10 +11,12 @@ import { GraduationCap, MessageCircle, X, Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 import AdmissionFormDialog from "@/components/AdmissionFormDialog";
 import { apiUrl } from "@/lib/apiClient";
+import useDocumentTitle from "@/hooks/useDocumentTitle";
 
 const WHATSAPP_NUMBER = "233550545403";
 
 const Index = () => {
+  useDocumentTitle("Allahul Musta'an Institute - Admissions & Student Portal");
   const [showAdmission, setShowAdmission] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [showBanner, setShowBanner] = useState(false);

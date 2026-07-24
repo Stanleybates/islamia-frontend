@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
 import { apiUrl } from '@/lib/apiClient';
 import { getCsrfToken } from '@/lib/csrf';
+import useDocumentTitle from "@/hooks/useDocumentTitle";
 
 const StudentForgot = () => {
+  useDocumentTitle("Forgot Password | Allahul Musta'an Institute");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);

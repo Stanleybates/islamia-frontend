@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { apiUrl, apiFetch } from "@/lib/apiClient";
 import { getCsrfToken } from "@/lib/csrf";
 import { jsPDF } from "jspdf";
+import useDocumentTitle from "@/hooks/useDocumentTitle";
 
 interface Student { id: string; name: string; email: string; semester: string; status: string; gpa: string; indexNumber?: string; enrolledCourses?: string[]; }
 interface Course { id: string; title: string; semester: string; enrolled: number; status: string; }
@@ -315,6 +316,7 @@ const ChangePasswordForm = () => {
 };
 
 const AdminPanel = () => {
+  useDocumentTitle("Admin Panel | Allahul Musta'an Institute");
   const useBackend = import.meta.env.VITE_USE_BACKEND === "true";
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try {

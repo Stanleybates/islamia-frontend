@@ -11,12 +11,14 @@ import { toast } from "@/components/ui/sonner";
 import logo from "@/assets/logo.png";
 import studentBg from "@/assets/student-learning-bg.jpg";
 import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from "@/lib/semester-settings";
+import useDocumentTitle from "@/hooks/useDocumentTitle";
 
 
 
 
 
 const StudentPortal = () => {
+  useDocumentTitle("Student Portal | Allahul Musta'an Institute");
   const [feeStatus, setFeeStatus] = useState<{ semester: string | null; fee: number | null; alreadyPaid: boolean } | null>(null);
   const [feePaying, setFeePaying] = useState(false);
 

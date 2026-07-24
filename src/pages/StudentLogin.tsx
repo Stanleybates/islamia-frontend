@@ -5,8 +5,10 @@ import { toast } from "@/components/ui/sonner";
 import logo from "@/assets/logo.png";
 import studentLearningBg from "@/assets/student-learning-bg.jpg";
 import apiClient from "@/lib/apiClient";
+import useDocumentTitle from "@/hooks/useDocumentTitle";
 
 const StudentLogin = () => {
+  useDocumentTitle("Student Login | Allahul Musta'an Institute");
   const navigate = useNavigate();
   const [indexNumber, setIndexNumber] = useState("");
   const [password, setPassword] = useState("");

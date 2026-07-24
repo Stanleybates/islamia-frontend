@@ -6,8 +6,10 @@ import { toast } from "@/components/ui/sonner";
 import logo from "@/assets/logo.png";
 import adminBg from "@/assets/admin-bg.webp";
 import apiClient from "@/lib/apiClient";
+import useDocumentTitle from "@/hooks/useDocumentTitle";
 
 const AdminLogin = () => {
+  useDocumentTitle("Admin Login | Allahul Musta'an Institute");
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

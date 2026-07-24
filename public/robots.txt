@@ -12,3 +12,9 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Disallow: /admin
+Disallow: /admin/login
+Disallow: /admin/signup
+
+Sitemap: https://allahul-mustaan-institute.com/sitemap.xml

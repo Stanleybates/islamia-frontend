@@ -3,8 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import apiClient from "@/lib/apiClient";
+import useDocumentTitle from "@/hooks/useDocumentTitle";
 
 const StudentSignup = () => {
+  useDocumentTitle("Student Sign Up | Allahul Musta'an Institute");
   const navigate = useNavigate();
   const [indexNumber, setIndexNumber] = useState("");
   const [phone, setPhone] = useState("");
