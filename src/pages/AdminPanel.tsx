@@ -740,7 +740,7 @@ if (studentsRes?.data) {
     };
 
     loadExams();
-    const examsInterval = setInterval(loadExams, 5000);
+    const examsInterval = setInterval(loadExams, 60000);
     return () => clearInterval(examsInterval);
   }, [isLoggedIn]);
 
@@ -761,7 +761,7 @@ if (studentsRes?.data) {
     };
 
     loadAssessments();
-    const assessmentsInterval = setInterval(loadAssessments, 5000);
+    const assessmentsInterval = setInterval(loadAssessments, 60000);
     return () => clearInterval(assessmentsInterval);
   }, [isLoggedIn]);
 
@@ -782,7 +782,7 @@ if (studentsRes?.data) {
     };
 
     loadExamResults();
-    const examResultsInterval = setInterval(loadExamResults, 5000);
+    const examResultsInterval = setInterval(loadExamResults, 60000);
     return () => clearInterval(examResultsInterval);
   }, [isLoggedIn]);
 
@@ -803,7 +803,7 @@ if (studentsRes?.data) {
     };
 
     loadSchedules();
-    const scheduleInterval = setInterval(loadSchedules, 5000);
+    const scheduleInterval = setInterval(loadSchedules, 60000);
     return () => clearInterval(scheduleInterval);
   }, [isLoggedIn]);
 
