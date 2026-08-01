@@ -341,17 +341,29 @@ const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
+  const [studentsPage, setStudentsPage] = useState(1);
+  const studentsLimit = 20;
   const [courses, setCourses] = useState<Course[]>([]);
+  const [coursesPage, setCoursesPage] = useState(1);
+  const coursesLimit = 20;
   const [paymentsState, setPaymentsState] = useState<Payment[]>([]);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const paymentsLimit = 20;
   const [stats, setStats] = useState<any>(null);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  useEffect(() => { setStudentsPage(1); }, [searchQuery]);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [appsPage, setAppsPage] = useState(1);
+  const [appsLimit] = useState(20);
+  const [appsTotal, setAppsTotal] = useState(0);
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [pendingGradeCount, setPendingGradeCount] = useState(0);
   const [showAddGrade, setShowAddGrade] = useState(false);
   const [showAddCourse, setShowAddCourse] = useState(false);
-  const [editingGrade, setEditingGrade] = useState<number | null>(null);
+  const [editingGrade, setEditingGrade] = useState<string | null>(null);
+  const [gradesPage, setGradesPage] = useState(1);
+  const gradesLimit = 20;
   const [viewingApp, setViewingApp] = useState<Application | null>(null);
   const [newStudent, setNewStudent] = useState({ name: "", email: "", semester: "Sem 1" });
   const [newGrade, setNewGrade] = useState({ student: "", course: "", midterm: "", final: "" });
@@ -364,6 +376,8 @@ const AdminPanel = () => {
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [newStaff, setNewStaff] = useState({ name: "", course: "", contact: "", email: "", department: "" });
   const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
+  const [adminsPage, setAdminsPage] = useState(1);
+  const adminsLimit = 20;
   const [editingAdmin, setEditingAdmin] = useState<AdminAccount | null>(null);
   const [editingRole, setEditingRole] = useState<string>("");
   const [editingAdminStatus, setEditingAdminStatus] = useState<string>("");
@@ -374,6 +388,8 @@ const AdminPanel = () => {
   const [myCourseInnerTab, setMyCourseInnerTab] = useState<"courses" | "results" | "schedule">("courses");
   const [coursesInnerTab, setCoursesInnerTab] = useState<"courses" | "results" | "schedule">("courses");
   const [exams, setExams] = useState<any[]>([]);
+  const [examsPage, setExamsPage] = useState(1);
+  const examsLimit = 20;
   const [examWindowMain, setExamWindowMain] = useState<{ start: string | null; end: string | null }>({ start: null, end: null });
   const [expandedExamId, setExpandedExamId] = useState<any>(null);
   const [showAddExam, setShowAddExam] = useState(false);
@@ -412,11 +428,11 @@ const AdminPanel = () => {
       if (!token) return;
       const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
       const [gradesRes, adminsRes, paymentsRes, statsRes, studentsRes, coursesRes] = await Promise.all([
-        apiFetch(apiUrl('/api/admin/grades'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/admins'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/payments'), { headers }).then(r => r.ok ? r.json() : null),
+        apiFetch(apiUrl('/api/admin/grades?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
+        apiFetch(apiUrl('/api/admin/admins?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
+        apiFetch(apiUrl('/api/admin/payments?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
         apiFetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/students'), { headers }).then(r => r.ok ? r.json() : null),
+        apiFetch(apiUrl('/api/admin/students?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
         apiFetch(apiUrl('/api/admin/courses'), { headers }).then(r => r.ok ? r.json() : null),
       ]);
       if (gradesRes?.data) setGrades(gradesRes.data);
@@ -471,7 +487,7 @@ const AdminPanel = () => {
         }).then(r => r.ok ? r.json() : null).then(verified => {
           if (verified) {
             // Get assigned courses from admin accounts list
-            apiFetch(apiUrl('/api/admin/admins'), {
+            apiFetch(apiUrl('/api/admin/admins?limit=200'), {
               headers: { Authorization: 'Bearer ' + s.token }
             }).then(r => r.ok ? r.json() : null).then(adminsRes => {
               const adminsList = adminsRes?.data || adminsRes || [];
@@ -511,11 +527,11 @@ const AdminPanel = () => {
           if (token) headers['Authorization'] = 'Bearer ' + token;
 
    const [gradesRes, adminsRes, paymentsRes, statsRes, studentsRes, coursesRes, settingsRes, assessmentsRes] = await Promise.all([
-  apiFetch(apiUrl('/api/admin/grades'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/admins'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/payments'), { headers }).then(r => r.ok ? r.json() : []),
+  apiFetch(apiUrl('/api/admin/grades?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
+  apiFetch(apiUrl('/api/admin/admins?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
+  apiFetch(apiUrl('/api/admin/payments?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : {}),
-  apiFetch(apiUrl('/api/admin/students'), { headers }).then(r => r.ok ? r.json() : []),
+  apiFetch(apiUrl('/api/admin/students?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/courses'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/settings'), { headers }).then(r => r.ok ? r.json() : {}),
   apiFetch(apiUrl('/api/admin/assessments'), { headers }).then(r => r.ok ? r.json() : { data: [] }),
@@ -676,7 +692,7 @@ if (studentsRes?.data) {
         const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
         const token = s?.token;
         const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) };
-       const res = await apiFetch(apiUrl('/api/admin/applications'), { headers });
+       const res = await apiFetch(apiUrl(`/api/admin/applications?page=${appsPage}&limit=${appsLimit}`), { headers });
         const json = await res.json();
         const fromBackend = (json.data ?? []).map((r) => ({
           id: 'APP-' + String(r.id).padStart(4, '0'),
@@ -695,6 +711,7 @@ if (studentsRes?.data) {
           languages: r.languages ?? '',
         }));
         setApplications(fromBackend);
+        setAppsTotal(json.meta?.total ?? fromBackend.length);
       } catch (e) {
         console.error(e);
         setApplications(localApps);
@@ -704,6 +721,90 @@ if (studentsRes?.data) {
     loadApplications();
     const interval = setInterval(loadApplications, 5000);
     return () => clearInterval(interval);
+  }, [isLoggedIn, appsPage, appsLimit]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const loadExams = async () => {
+      try {
+        const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+        const token = s?.token;
+        const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) };
+        const res = await apiFetch(apiUrl('/api/admin/exams'), { headers });
+        const json = await res.json();
+        if (json?.data) setExams(json.data);
+      } catch (e) {
+        console.error('Exams fetch error:', e);
+      }
+    };
+
+    loadExams();
+    const examsInterval = setInterval(loadExams, 5000);
+    return () => clearInterval(examsInterval);
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const loadAssessments = async () => {
+      try {
+        const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+        const token = s?.token;
+        const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) };
+        const res = await apiFetch(apiUrl('/api/admin/assessments'), { headers });
+        const json = await res.json();
+        if (json?.data) setAssessments(json.data);
+      } catch (e) {
+        console.error('Assessments fetch error:', e);
+      }
+    };
+
+    loadAssessments();
+    const assessmentsInterval = setInterval(loadAssessments, 5000);
+    return () => clearInterval(assessmentsInterval);
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const loadExamResults = async () => {
+      try {
+        const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+        const token = s?.token;
+        const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) };
+        const res = await apiFetch(apiUrl('/api/admin/exam-results'), { headers });
+        const json = await res.json();
+        if (json?.data) setExamResults(json.data);
+      } catch (e) {
+        console.error('Exam results fetch error:', e);
+      }
+    };
+
+    loadExamResults();
+    const examResultsInterval = setInterval(loadExamResults, 5000);
+    return () => clearInterval(examResultsInterval);
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const loadSchedules = async () => {
+      try {
+        const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+        const token = s?.token;
+        const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) };
+        const res = await apiFetch(apiUrl('/api/admin/schedule'), { headers });
+        const json = await res.json();
+        if (json?.data) setSchedules(json.data);
+      } catch (e) {
+        console.error('Schedule fetch error:', e);
+      }
+    };
+
+    loadSchedules();
+    const scheduleInterval = setInterval(loadSchedules, 5000);
+    return () => clearInterval(scheduleInterval);
   }, [isLoggedIn]);
 
   const checkLockout = () => {
@@ -944,7 +1045,7 @@ const exportData = async (type: string) => {
 
     try {
       // Look up student by index number
-      const studentRes = await apiFetch(apiUrl('/api/admin/students'), { headers });
+      const studentRes = await apiFetch(apiUrl('/api/admin/students?limit=200'), { headers });
       const studentData = await studentRes.json();
       const studentList = studentData.data || studentData;
       const student = studentList.find((s: any) => s.index_number === newGrade.student.trim());
@@ -954,7 +1055,7 @@ const exportData = async (type: string) => {
         return;
       }
 
-      const res = await apiFetch(apiUrl('/api/admin/grades'), {
+      const res = await apiFetch(apiUrl('/api/admin/grades?limit=200'), {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -983,11 +1084,15 @@ const exportData = async (type: string) => {
     }
   };
 
-  const handleUpdateGrade = async (idx: number) => {
+  const handleUpdateGrade = async (gradeId: string) => {
     const midterm = Number(editGradeData.midterm);
     const final_ = Number(editGradeData.final);
     const grade = calcGrade(midterm, final_);
-    const gradeRow = grades[idx];
+    const gradeRow = grades.find((x) => x.id === gradeId);
+    if (!gradeRow) {
+      toast.error("Could not find that grade — please refresh and try again.");
+      return;
+    }
 
     try {
       const csrfToken = await getCsrfToken();
@@ -1003,7 +1108,7 @@ const exportData = async (type: string) => {
         return;
       }
       const updatedRow = await res.json();
-      setGrades((g) => g.map((x, i) => i === idx ? { ...x, ...updatedRow } : x));
+      setGrades((g) => g.map((x) => x.id === gradeId ? { ...x, ...updatedRow } : x));
       setEditingGrade(null);
       toast.success("Grade updated successfully!");
     } catch (e) {
@@ -1107,6 +1212,8 @@ const exportData = async (type: string) => {
     : filteredStudents.filter((s: any) =>
         s.enrolledCourses?.some((c: string) => currentAssignedCourseIds.includes(c))
       );
+  const studentsTotalPages = Math.max(1, Math.ceil(visibleStudents.length / studentsLimit));
+  const paginatedStudents = visibleStudents.slice((studentsPage - 1) * studentsLimit, studentsPage * studentsLimit);
 
   const pendingApps = applications.filter((a) => a.status === "Pending");
   const currentAssignedCourseIds = normalizeAssignedCourses(currentAdmin?.assignedCourses);
@@ -1401,7 +1508,7 @@ const exportData = async (type: string) => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="font-heading text-lg font-bold text-foreground">Admission Applications</h2>
-                <span className="text-sm text-muted-foreground">{applications.length} total · {pendingApps.length} pending</span>
+                <span className="text-sm text-muted-foreground">{appsTotal || applications.length} total · {pendingApps.length} pending</span>
               </div>
               {applications.length === 0 ? (
                 <div className="bg-card rounded-xl border border-border p-12 text-center">
@@ -1449,6 +1556,37 @@ const exportData = async (type: string) => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {appsTotal > appsLimit && (
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <button
+                    onClick={() => setAppsPage(p => Math.max(1, p - 1))}
+                    disabled={appsPage === 1}
+                    className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
+                  >
+                    Prev
+                  </button>
+                  {Array.from({ length: Math.ceil(appsTotal / appsLimit) }, (_, i) => i + 1).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setAppsPage(p)}
+                      className={`w-8 h-8 rounded-lg text-sm font-medium ${
+                        p === appsPage
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setAppsPage(p => Math.min(Math.ceil(appsTotal / appsLimit), p + 1))}
+                    disabled={appsPage === Math.ceil(appsTotal / appsLimit)}
+                    className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
+                  >
+                    Next
+                  </button>
                 </div>
               )}
               {viewingApp && (
@@ -1531,7 +1669,7 @@ const exportData = async (type: string) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {visibleStudents.map((s) => (
+                      {paginatedStudents.map((s) => (
                         <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                           <td className="p-4 text-muted-foreground">{s.id}</td>
                           <td className="p-4 font-medium text-foreground">{s.name}</td>
@@ -1550,6 +1688,37 @@ const exportData = async (type: string) => {
                   </table>
                 </div>
               </div>
+              {studentsTotalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <button
+                    onClick={() => setStudentsPage(p => Math.max(1, p - 1))}
+                    disabled={studentsPage === 1}
+                    className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
+                  >
+                    Prev
+                  </button>
+                  {Array.from({ length: studentsTotalPages }, (_, i) => i + 1).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setStudentsPage(p)}
+                      className={`w-8 h-8 rounded-lg text-sm font-medium ${
+                        p === studentsPage
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setStudentsPage(p => Math.min(studentsTotalPages, p + 1))}
+                    disabled={studentsPage === studentsTotalPages}
+                    className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {activeTab === "courses" && (
@@ -1585,7 +1754,10 @@ const exportData = async (type: string) => {
                 </div>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {courses.map((c) => (
+                {(() => {
+                  const coursesTotalPages = Math.max(1, Math.ceil(courses.length / coursesLimit));
+                  const paginatedCourses = courses.slice((coursesPage - 1) * coursesLimit, coursesPage * coursesLimit);
+                  return paginatedCourses.map((c) => (
                   <div key={c.id} className="bg-card rounded-xl border border-border p-5">
                     <div className="flex items-start justify-between">
                       <div>
@@ -1623,8 +1795,22 @@ const exportData = async (type: string) => {
                       </div>
                     </div>
                   </div>
-                ))}
+                  ));
+                })()}
               </div>
+              {(() => {
+                const coursesTotalPages = Math.max(1, Math.ceil(courses.length / coursesLimit));
+                if (coursesTotalPages <= 1) return null;
+                return (
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <button onClick={() => setCoursesPage(p => Math.max(1, p - 1))} disabled={coursesPage === 1} className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted">Prev</button>
+                    {Array.from({ length: coursesTotalPages }, (_, i) => i + 1).map((p) => (
+                      <button key={p} onClick={() => setCoursesPage(p)} className={`w-8 h-8 rounded-lg text-sm font-medium ${p === coursesPage ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:bg-muted"}`}>{p}</button>
+                    ))}
+                    <button onClick={() => setCoursesPage(p => Math.min(coursesTotalPages, p + 1))} disabled={coursesPage === coursesTotalPages} className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted">Next</button>
+                  </div>
+                );
+              })()}
             </div>
               )}
 
@@ -2051,15 +2237,19 @@ const exportData = async (type: string) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {(isSuperAdmin ? grades : grades.filter((g: any) => currentAssignedCourseIds.includes(g.course))).map((g, i) => (
+                      {(() => {
+                        const visibleGrades = isSuperAdmin ? grades : grades.filter((g: any) => currentAssignedCourseIds.includes(g.course));
+                        const gradesTotalPages = Math.max(1, Math.ceil(visibleGrades.length / gradesLimit));
+                        const paginatedGrades = visibleGrades.slice((gradesPage - 1) * gradesLimit, gradesPage * gradesLimit);
+                        return paginatedGrades.map((g) => (
                         <tr key={g.id} className="border-b border-border last:border-0">
                           <td className="p-4 font-medium text-foreground">{g.student}</td>
                           <td className="p-4 text-muted-foreground">{g.course}</td>
                           <td className="p-4 text-center">
-                            {editingGrade === i ? <input type="number" value={editGradeData.midterm} onChange={(e) => setEditGradeData({ ...editGradeData, midterm: e.target.value })} className="w-16 text-center border border-border rounded px-1 py-0.5 text-sm" /> : g.midterm}
+                            {editingGrade === g.id ? <input type="number" value={editGradeData.midterm} onChange={(e) => setEditGradeData({ ...editGradeData, midterm: e.target.value })} className="w-16 text-center border border-border rounded px-1 py-0.5 text-sm" /> : g.midterm}
                           </td>
                           <td className="p-4 text-center">
-                            {editingGrade === i ? <input type="number" value={editGradeData.final} onChange={(e) => setEditGradeData({ ...editGradeData, final: e.target.value })} className="w-16 text-center border border-border rounded px-1 py-0.5 text-sm" /> : g.final}
+                            {editingGrade === g.id ? <input type="number" value={editGradeData.final} onChange={(e) => setEditGradeData({ ...editGradeData, final: e.target.value })} className="w-16 text-center border border-border rounded px-1 py-0.5 text-sm" /> : g.final}
                           </td>
                           <td className="p-4 text-center">
                             <span className="bg-primary/10 text-primary font-bold px-3 py-1 rounded-full text-xs">{g.grade}</span>
@@ -2070,14 +2260,14 @@ const exportData = async (type: string) => {
                             </span>
                           </td>
                           <td className="p-4 text-center">
-                            {editingGrade === i ? (
+                            {editingGrade === g.id ? (
                               <div className="flex gap-1 justify-center">
-                                <Button size="sm" onClick={() => handleUpdateGrade(i)}>Save</Button>
+                                <Button size="sm" onClick={() => handleUpdateGrade(g.id)}>Save</Button>
                                 <Button size="sm" variant="outline" onClick={() => setEditingGrade(null)}>Cancel</Button>
                               </div>
                             ) : (
                               <div className="flex items-center justify-center gap-2">
-                                <button onClick={() => { setEditingGrade(i); setEditGradeData({ midterm: String(g.midterm), final: String(g.final) }); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary"><Edit size={14} /></button>
+                                <button onClick={() => { setEditingGrade(g.id); setEditGradeData({ midterm: String(g.midterm), final: String(g.final) }); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-primary"><Edit size={14} /></button>
                                 {g.status === "pending" && isSuperAdmin ? (
                                   <Button size="sm" onClick={() => useBackend ? approveGradeBackend((g as any).id) : handleApproveGrade(g.id)}>Approve</Button>
                                 ) : null}
@@ -2085,11 +2275,48 @@ const exportData = async (type: string) => {
                             )}
                           </td>
                         </tr>
-                      ))}
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
               </div>
+              {(() => {
+                const visibleGrades = isSuperAdmin ? grades : grades.filter((g: any) => currentAssignedCourseIds.includes(g.course));
+                const gradesTotalPages = Math.max(1, Math.ceil(visibleGrades.length / gradesLimit));
+                if (gradesTotalPages <= 1) return null;
+                return (
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <button
+                      onClick={() => setGradesPage(p => Math.max(1, p - 1))}
+                      disabled={gradesPage === 1}
+                      className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
+                    >
+                      Prev
+                    </button>
+                    {Array.from({ length: gradesTotalPages }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setGradesPage(p)}
+                        className={`w-8 h-8 rounded-lg text-sm font-medium ${
+                          p === gradesPage
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setGradesPage(p => Math.min(gradesTotalPages, p + 1))}
+                      disabled={gradesPage === gradesTotalPages}
+                      className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
+                    >
+                      Next
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           )}
           {activeTab === "payments" && isSuperAdmin && (
@@ -2109,7 +2336,10 @@ const exportData = async (type: string) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {paymentsState.map((p) => (
+                      {(() => {
+                        const paymentsTotalPages = Math.max(1, Math.ceil(paymentsState.length / paymentsLimit));
+                        const paginatedPayments = paymentsState.slice((paymentsPage - 1) * paymentsLimit, paymentsPage * paymentsLimit);
+                        return paginatedPayments.map((p) => (
                         <tr key={p.id} className="border-b border-border last:border-0">
                           <td className="p-4 text-muted-foreground">{p.id}</td>
                           <td className="p-4 font-medium text-foreground">{p.student || p.student_name || p.user_name || p.user || p.student_index_number || p.student_email || '-'}</td>
@@ -2120,11 +2350,25 @@ const exportData = async (type: string) => {
                             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${p.status === "Completed" || p.status === 'approved' || p.status === 'paid' ? "bg-primary/10 text-primary" : p.status === "Pending" || p.status === 'pending' ? "bg-accent/10 text-accent" : "bg-destructive/10 text-destructive"}`}>{p.status}</span>
                           </td>
                         </tr>
-                      ))}
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
               </div>
+              {(() => {
+                const paymentsTotalPages = Math.max(1, Math.ceil(paymentsState.length / paymentsLimit));
+                if (paymentsTotalPages <= 1) return null;
+                return (
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <button onClick={() => setPaymentsPage(p => Math.max(1, p - 1))} disabled={paymentsPage === 1} className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted">Prev</button>
+                    {Array.from({ length: paymentsTotalPages }, (_, i) => i + 1).map((p) => (
+                      <button key={p} onClick={() => setPaymentsPage(p)} className={`w-8 h-8 rounded-lg text-sm font-medium ${p === paymentsPage ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:bg-muted"}`}>{p}</button>
+                    ))}
+                    <button onClick={() => setPaymentsPage(p => Math.min(paymentsTotalPages, p + 1))} disabled={paymentsPage === paymentsTotalPages} className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted">Next</button>
+                  </div>
+                );
+              })()}
             </div>
           )}
           {activeTab === "staff" && isSuperAdmin && (
@@ -2230,7 +2474,11 @@ const exportData = async (type: string) => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {adminAccounts.filter((a: any) => a.role !== "super").map((a: any) => (
+                  {(() => {
+                    const visibleAdmins = adminAccounts.filter((a: any) => a.role !== "super");
+                    const adminsTotalPages = Math.max(1, Math.ceil(visibleAdmins.length / adminsLimit));
+                    const paginatedAdmins = visibleAdmins.slice((adminsPage - 1) * adminsLimit, adminsPage * adminsLimit);
+                    return paginatedAdmins.map((a: any) => (
                     <div key={a.email} className="bg-card rounded-xl border border-border p-5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
@@ -2287,9 +2535,46 @@ const exportData = async (type: string) => {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
               )}
+              {(() => {
+                const visibleAdmins = adminAccounts.filter((a: any) => a.role !== "super");
+                const adminsTotalPages = Math.max(1, Math.ceil(visibleAdmins.length / adminsLimit));
+                if (adminsTotalPages <= 1) return null;
+                return (
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <button
+                      onClick={() => setAdminsPage(p => Math.max(1, p - 1))}
+                      disabled={adminsPage === 1}
+                      className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
+                    >
+                      Prev
+                    </button>
+                    {Array.from({ length: adminsTotalPages }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setAdminsPage(p)}
+                        className={`w-8 h-8 rounded-lg text-sm font-medium ${
+                          p === adminsPage
+                            ? "bg-primary text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setAdminsPage(p => Math.min(adminsTotalPages, p + 1))}
+                      disabled={adminsPage === adminsTotalPages}
+                      className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted"
+                    >
+                      Next
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           )}
           {activeTab === "course-assignments" && isSuperAdmin && (
@@ -2742,7 +3027,10 @@ const exportData = async (type: string) => {
                   )}
                   <div className="bg-card rounded-xl border border-border overflow-hidden">
                     {exams.length === 0 && <div className="p-6 text-center text-muted-foreground text-sm">No exams scheduled yet</div>}
-                    {exams.map((e: any) => {
+                    {(() => {
+                      const examsTotalPages = Math.max(1, Math.ceil(exams.length / examsLimit));
+                      const paginatedExams = exams.slice((examsPage - 1) * examsLimit, examsPage * examsLimit);
+                      return paginatedExams.map((e: any) => {
                       const isExpanded = expandedExamId === e.id;
                       return (
                       <div key={e.id} className="border-b border-border last:border-0">
@@ -2833,8 +3121,22 @@ const exportData = async (type: string) => {
                         )}
                       </div>
                       );
-                    })}
+                    });
+                  })()}
                   </div>
+              {(() => {
+                const examsTotalPages = Math.max(1, Math.ceil(exams.length / examsLimit));
+                if (examsTotalPages <= 1) return null;
+                return (
+                  <div className="flex items-center justify-center gap-2 pt-2">
+                    <button onClick={() => setExamsPage(p => Math.max(1, p - 1))} disabled={examsPage === 1} className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted">Prev</button>
+                    {Array.from({ length: examsTotalPages }, (_, i) => i + 1).map((p) => (
+                      <button key={p} onClick={() => setExamsPage(p)} className={`w-8 h-8 rounded-lg text-sm font-medium ${p === examsPage ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:bg-muted"}`}>{p}</button>
+                    ))}
+                    <button onClick={() => setExamsPage(p => Math.min(examsTotalPages, p + 1))} disabled={examsPage === examsTotalPages} className="px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted">Next</button>
+                  </div>
+                );
+              })()}
                 </div>
               )}
 
