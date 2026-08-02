@@ -1009,13 +1009,40 @@ const exportData = async (type: string) => {
     },
   });
 
-  const handleAddStudent = () => {
+  const handleAddStudent = async () => {
     if (!newStudent.name || !newStudent.email) return;
-    const id = `STU${String(students.length + 1).padStart(3, "0")}`;
-    setStudents([...students, { ...newStudent, id, status: "Active", gpa: "0.0" }]);
-    setNewStudent({ name: "", email: "", semester: "Sem 1" });
-    setShowAddStudent(false);
-    toast.success(`Student "${newStudent.name}" added successfully!`);
+    try {
+      const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+      const token = s?.token;
+      const csrfToken = await getCsrfToken();
+      const headers: any = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken };
+      const res = await apiFetch(apiUrl('/api/admin/students'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ username: newStudent.name, email: newStudent.email, semester: newStudent.semester }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.message || 'Failed to add student');
+        return;
+      }
+      const created = await res.json();
+      setStudents([...students, {
+        id: String(created.id),
+        name: created.username,
+        email: created.email,
+        semester: created.semester || newStudent.semester,
+        status: "Active",
+        gpa: "0.0",
+        indexNumber: created.index_number,
+        enrolledCourses: [],
+      }]);
+      setNewStudent({ name: "", email: "", semester: "Sem 1" });
+      setShowAddStudent(false);
+      toast.success(`Student added — Index Number: ${created.index_number}`);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to add student');
+    }
   };
 
   const handleDeleteStudent = (id: string) => {
@@ -2386,25 +2413,24 @@ const exportData = async (type: string) => {
                     <input value={newStaff.name} onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })} className={inputClass} placeholder="Full Name" />
                     <input value={newStaff.email} onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })} className={inputClass} placeholder="Email" />
                     <input value={newStaff.contact} onChange={(e) => setNewStaff({ ...newStaff, contact: e.target.value })} className={inputClass} placeholder="Phone Number" />
-                    <input type="password" value={newStaff.course} onChange={(e) => setNewStaff({ ...newStaff, course: e.target.value })} className={inputClass} placeholder="Password" />
-                    <input type="password" value={newStaff.department} onChange={(e) => setNewStaff({ ...newStaff, department: e.target.value })} className={inputClass} placeholder="Confirm Password" />
                   </div>
+                  <p className="text-xs text-muted-foreground">A temporary password will be generated automatically and emailed to them.</p>
                   <div className="flex gap-2">
                     <Button onClick={async () => {
-                      if (!newStaff.name) return;
+                      if (!newStaff.name || !newStaff.email) return;
                       try {
                         const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
                         const token = s?.token;
                         const csrfToken = await getCsrfToken();
                         const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
                         if (token) headers['Authorization'] = `Bearer ${token}`;
-                        const res = await apiFetch(apiUrl('/api/admin/signup'), {
+                        const res = await apiFetch(apiUrl('/api/admin/staff'), {
                           method: 'POST',
                           headers,
-                          body: JSON.stringify({ username: newStaff.name, email: newStaff.email, phone: newStaff.contact, password: newStaff.course, confirmPassword: newStaff.department }),
+                          body: JSON.stringify({ username: newStaff.name, email: newStaff.email, phone: newStaff.contact }),
                         });
                         if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed to add staff'); }
-                        toast.success(`Staff "${newStaff.name}" added successfully`);
+                        toast.success(`Staff "${newStaff.name}" added — temporary password emailed to them`);
                         setNewStaff({ name: '', course: '', contact: '', email: '', department: '' });
                         setShowAddStaff(false);
                       } catch (e: any) { toast.error(e.message); }
