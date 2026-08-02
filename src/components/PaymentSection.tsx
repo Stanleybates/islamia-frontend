@@ -240,8 +240,9 @@ const PaymentSection = () => {
               </div>
               {!isContinuing && (
                 <>
-                  <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address (auto-filled)" type="email" className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background" />
-                  <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number" type="tel" className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background" />
+                  <input value={email} readOnly placeholder="Email address (auto-filled)" type="email" className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-muted text-muted-foreground cursor-not-allowed" />
+                  <input value={phone} readOnly placeholder="Phone number" type="tel" className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-muted text-muted-foreground cursor-not-allowed" />
+                  <p className="text-[11px] text-muted-foreground italic">These are pulled from your approved application and can't be edited here. Contact the institute if either is wrong.</p>
                 </>
               )}
             </div>
