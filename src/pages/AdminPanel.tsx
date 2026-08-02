@@ -2360,6 +2360,7 @@ const exportData = async (type: string) => {
                         <th className="text-center p-4 font-semibold text-foreground">Method</th>
                         <th className="text-center p-4 font-semibold text-foreground">Date</th>
                         <th className="text-center p-4 font-semibold text-foreground">Status</th>
+                        <th className="text-center p-4 font-semibold text-foreground">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2375,6 +2376,22 @@ const exportData = async (type: string) => {
                           <td className="p-4 text-center text-muted-foreground">{(p.created_at || p.date || '').split('T')[0]}</td>
                           <td className="p-4 text-center">
                             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${p.status === "Completed" || p.status === 'approved' || p.status === 'paid' ? "bg-primary/10 text-primary" : p.status === "Pending" || p.status === 'pending' ? "bg-accent/10 text-accent" : "bg-destructive/10 text-destructive"}`}>{p.status}</span>
+                          </td>
+                          <td className="p-4 text-center">
+                            <button onClick={async () => {
+                              if (!window.confirm('Are you sure you want to delete this payment record? This cannot be undone.')) return;
+                              try {
+                                const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                                const token = s?.token;
+                                const csrfToken = await getCsrfToken();
+                                const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
+                                if (token) headers['Authorization'] = `Bearer ${token}`;
+                                const res = await apiFetch(apiUrl('/api/admin/payments/' + p.id), { method: 'DELETE', headers });
+                                if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed to delete payment'); }
+                                setPaymentsState(prev => prev.filter((x: any) => x.id !== p.id));
+                                toast.success('Payment record deleted');
+                              } catch (e: any) { toast.error(e.message); }
+                            }} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>
                           </td>
                         </tr>
                         ));
