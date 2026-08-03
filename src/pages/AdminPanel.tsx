@@ -900,10 +900,13 @@ const exportData = async (type: string) => {
         const next = prev.map(x => String(x.id) === String(updated.id) ? updated : x);
         const prevItem = prev.find(x => String(x.id) === String(updated.id));
         addUndoItem(`Revert approval for ${updated.username || updated.email}`, async () => {
-          setAdminAccounts((cur) => cur.map(x => String(x.id) === String(updated.id) ? (prevItem || { ...updated, status: 'pending' }) : x));
-
+          try {
+            await updateAdminBackend(updated.id, undefined, 'pending');
+          } catch (e) {
+            setAdminAccounts((cur) => cur.map(x => String(x.id) === String(updated.id) ? (prevItem || { ...updated, status: 'pending' }) : x));
+          }
         });
-        toast.success('Admin approved — undo available for 5 minutes');
+        toast.success('Admin approved — undo available for 5 seconds');
         return next;
       });
     } catch (e) { toast.error('Could not approve admin'); }
@@ -914,6 +917,7 @@ const exportData = async (type: string) => {
       const headers = await getAuthHeader();
       const res = await apiFetch(apiUrl('/api/admin/admins/' + userId), { method: 'DELETE', headers });
       if (!res.ok) throw new Error('Failed');
+      const result = await res.json();
       let deleted: any | null = null;
       setAdminAccounts((a) => {
         const found = a.find(x => x.id === userId) || null;
@@ -922,12 +926,16 @@ const exportData = async (type: string) => {
       });
       // add undo entry to restore admin locally
       addUndoItem(`Restore admin ${deleted?.username || deleted?.email}`, async () => {
-        if (!deleted) return;
-        setAdminAccounts((a) => [deleted!, ...a]);
-        // restore local copy
-  
+        try {
+          const headers2 = await getAuthHeader();
+          const res2 = await apiFetch(apiUrl('/api/admin/admins/restore'), { method: 'POST', headers: headers2, body: JSON.stringify({ restoreToken: result.restoreToken }) });
+          if (!res2.ok) { const e2 = await res2.json(); throw new Error(e2.message || 'Restore failed'); }
+          const restored = await res2.json();
+          setAdminAccounts((a) => [restored, ...a]);
+          toast.success('Admin restored');
+        } catch (e: any) { toast.error(e.message || 'Could not restore admin'); }
       });
-      toast.success('Admin deleted — undo available for 5 minutes');
+      toast.success('Admin deleted — undo available for 5 seconds');
     } catch (e) { toast.error('Could not delete admin'); }
   };
 
@@ -940,10 +948,13 @@ const exportData = async (type: string) => {
       const prevItem = adminAccounts.find(x => String(x.id) === String(updated.id));
       setAdminAccounts((a) => a.map(x => String(x.id) === String(updated.id) ? { ...x, status: updated.status } : x));
       addUndoItem(`Revert denial for ${updated.username || updated.email}`, async () => {
-        setAdminAccounts((cur) => cur.map(x => String(x.id) === String(updated.id) ? (prevItem || { ...updated, status: 'pending' }) : x));
-
+        try {
+          await updateAdminBackend(updated.id, undefined, 'pending');
+        } catch (e) {
+          setAdminAccounts((cur) => cur.map(x => String(x.id) === String(updated.id) ? (prevItem || { ...updated, status: 'pending' }) : x));
+        }
       });
-      toast.success('Admin denied — undo available for 5 minutes');
+      toast.success('Admin denied — undo available for 5 seconds');
     } catch (e) { toast.error('Could not deny admin'); }
   };
 
@@ -1045,14 +1056,26 @@ const exportData = async (type: string) => {
     }
   };
 
-  const handleDeleteStudent = (id: string) => {
+  const handleDeleteStudent = async (id: string) => {
     const deleted = students.find(s => s.id === id) || null;
-    setStudents(students.filter((s) => s.id !== id));
-    addUndoItem(`Restore student ${deleted?.name || deleted?.email}`, async () => {
-      if (!deleted) return;
-      setStudents((s) => [deleted!, ...s]);
-    });
-    toast.success("Student removed — undo available for 5 minutes");
+    try {
+      const headers = await getAuthHeader();
+      const res = await apiFetch(apiUrl('/api/admin/students/' + id), { method: 'DELETE', headers });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed to delete student'); }
+      const result = await res.json();
+      setStudents(students.filter((s) => s.id !== id));
+      addUndoItem(`Restore student ${deleted?.name || deleted?.email}`, async () => {
+        try {
+          const headers2 = await getAuthHeader();
+          const res2 = await apiFetch(apiUrl('/api/admin/students/restore'), { method: 'POST', headers: headers2, body: JSON.stringify({ restoreToken: result.restoreToken }) });
+          if (!res2.ok) { const e2 = await res2.json(); throw new Error(e2.message || 'Restore failed'); }
+          const restored = await res2.json();
+          setStudents((s) => [{ id: String(restored.id), name: restored.username, email: restored.email, semester: restored.semester || 'Sem 1', status: 'Active', gpa: '0.0', indexNumber: restored.index_number, enrolledCourses: [] }, ...s]);
+          toast.success('Student restored');
+        } catch (e: any) { toast.error(e.message || 'Could not restore student'); }
+      });
+      toast.success("Student removed — undo available for 5 seconds");
+    } catch (e: any) { toast.error(e.message || 'Could not delete student'); }
   };
 
   const handleAddGrade = async () => {
@@ -1310,7 +1333,7 @@ const exportData = async (type: string) => {
     }
   };
 
-  const addUndoItem = (label: string, revert: () => Promise<void> | void, ttl = 5 * 60 * 1000) => {
+  const addUndoItem = (label: string, revert: () => Promise<void> | void, ttl = 5 * 1000) => {
     const id = String(Date.now()) + Math.random().toString(36).slice(2, 7);
     const expiresAt = Date.now() + ttl;
     setUndoItems((s) => [{ id, label, expiresAt, revert }, ...s]);
