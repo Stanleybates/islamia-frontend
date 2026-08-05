@@ -129,6 +129,7 @@ const FeeSettingsTab = () => {
   const [fee, setFee] = React.useState('');
   const [semesterFees, setSemesterFees] = React.useState<Record<string, string>>({});
   const [admissionStart, setAdmissionStart] = React.useState('');
+  const [classStartDate, setClassStartDate] = React.useState('');
   const [examWindowStart, setExamWindowStart] = React.useState('');
   const [examWindowEnd, setExamWindowEnd] = React.useState('');
   const [vacationDays, setVacationDays] = React.useState('');
@@ -158,6 +159,7 @@ const FeeSettingsTab = () => {
           try { setSemesterFees(JSON.parse(d.semesterFees)); } catch { /* ignore parse errors */ }
         }
         if (d.admissionStart || d.admission_start || d.semesterStart || d.semester_start) setAdmissionStart(d.admissionStart || d.admission_start || d.semesterStart || d.semester_start);
+        if (d.classStartDate) setClassStartDate(d.classStartDate);
         if (d.examWindowStart) setExamWindowStart(d.examWindowStart);
         if (d.examWindowEnd) setExamWindowEnd(d.examWindowEnd);
         if (d.vacationDays) setVacationDays(String(d.vacationDays));
@@ -180,7 +182,7 @@ const FeeSettingsTab = () => {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
-        body: JSON.stringify({ semester, fee: Number(fee), admissionStart, admissionEnd, examWindowStart, examWindowEnd, vacationDays: vacationDays ? Number(vacationDays) : null, reopeningDate, semesterFees }),
+        body: JSON.stringify({ semester, fee: Number(fee), admissionStart, admissionEnd, examWindowStart, examWindowEnd, vacationDays: vacationDays ? Number(vacationDays) : null, reopeningDate, semesterFees, classStartDate }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -225,10 +227,15 @@ const FeeSettingsTab = () => {
             <label className="text-sm font-medium block mb-1">Admission End Date</label>
             <input type="date" value={admissionEnd} onChange={e => setAdmissionEnd(e.target.value)} className="w-full px-3 py-2 border rounded text-sm" />
           </div>
+          <div>
+            <label className="text-sm font-medium block mb-1">Class Start Date</label>
+            <input type="date" value={classStartDate} onChange={e => setClassStartDate(e.target.value)} className="w-full px-3 py-2 border rounded text-sm" />
+          </div>
         </div>
         <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
           <p><span className="font-medium text-foreground">Admission Start:</span> {formatSemesterDate(admissionStart)}</p>
           <p><span className="font-medium text-foreground">Admission End:</span> {formatSemesterDate(admissionEnd)}</p>
+          <p><span className="font-medium text-foreground">Class Start:</span> {formatSemesterDate(classStartDate)} — approved-but-unpaid applications are only cleared after this date.</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
