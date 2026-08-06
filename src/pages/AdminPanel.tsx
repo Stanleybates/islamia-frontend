@@ -365,6 +365,7 @@ const AdminPanel = () => {
   const [appsLimit] = useState(20);
   const [appsTotal, setAppsTotal] = useState(0);
   const [showAddStudent, setShowAddStudent] = useState(false);
+  const [createdStudentInfo, setCreatedStudentInfo] = useState<{ name: string; indexNumber: string } | null>(null);
   const [pendingGradeCount, setPendingGradeCount] = useState(0);
   const [showAddGrade, setShowAddGrade] = useState(false);
   const [showAddCourse, setShowAddCourse] = useState(false);
@@ -1057,7 +1058,7 @@ const exportData = async (type: string) => {
       }]);
       setNewStudent({ name: "", email: "", semester: "Sem 1" });
       setShowAddStudent(false);
-      toast.success(`Student added — Index Number: ${created.index_number}`);
+      setCreatedStudentInfo({ name: created.username, indexNumber: created.index_number });
     } catch (e: any) {
       toast.error(e.message || 'Failed to add student');
     }
@@ -1695,6 +1696,26 @@ const exportData = async (type: string) => {
                 </div>
 {isSuperAdmin && <Button variant="gold" onClick={() => setShowAddStudent(true)} className="gap-2"><Plus size={16} /> Add Student</Button>}
               </div>
+              {createdStudentInfo && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setCreatedStudentInfo(null)}>
+                  <div className="bg-card rounded-xl border border-border p-6 max-w-sm w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2 text-primary">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      <h3 className="font-heading font-semibold text-lg text-foreground">Student Added Successfully</h3>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Full Name</p>
+                      <p className="font-medium text-foreground">{createdStudentInfo.name}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm text-muted-foreground">Assigned Index Number</p>
+                      <p className="font-heading font-bold text-xl text-primary">{createdStudentInfo.indexNumber}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">A welcome email with this index number and login instructions has been sent to the student.</p>
+                    <Button onClick={() => setCreatedStudentInfo(null)} className="w-full">Got it</Button>
+                  </div>
+                </div>
+              )}
               {showAddStudent && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
                   <h3 className="font-heading font-semibold text-foreground">Add New Student</h3>
@@ -1719,7 +1740,8 @@ const exportData = async (type: string) => {
                         <th className="text-left p-4 font-semibold text-foreground">ID</th>
                         <th className="text-left p-4 font-semibold text-foreground">Name</th>
                         <th className="text-left p-4 font-semibold text-foreground hidden sm:table-cell">Email</th>
-                        <th className="text-center p-4 font-semibold text-foreground">Semester</th>
+                        <th className="text-left p-4 font-semibold text-foreground">Index Number</th>
+                        <th className="text-center p-4 font-semibold text-foreground hidden sm:table-cell">Semester</th>
                         <th className="text-center p-4 font-semibold text-foreground">GPA</th>
                         <th className="text-center p-4 font-semibold text-foreground">Status</th>
                         <th className="text-center p-4 font-semibold text-foreground">Actions</th>
@@ -1731,7 +1753,8 @@ const exportData = async (type: string) => {
                           <td className="p-4 text-muted-foreground">{s.id}</td>
                           <td className="p-4 font-medium text-foreground">{s.name}</td>
                           <td className="p-4 text-muted-foreground hidden sm:table-cell">{s.email}</td>
-                          <td className="p-4 text-center text-muted-foreground">{s.semester}</td>
+                          <td className="p-4 text-muted-foreground">{s.indexNumber || '-'}</td>
+                          <td className="p-4 text-center text-muted-foreground hidden sm:table-cell">{s.semester}</td>
                           <td className="p-4 text-center font-semibold text-foreground">{s.gpa}</td>
                           <td className="p-4 text-center">
                             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${s.status === "Active" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{s.status}</span>

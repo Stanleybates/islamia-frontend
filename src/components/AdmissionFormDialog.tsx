@@ -107,13 +107,50 @@ const AdmissionFormDialog = ({ open, onClose }: AdmissionFormDialogProps) => {
     }
   };
 
+  const COMMON_EMAIL_TYPOS: Record<string, string> = {
+    'gmaail.com': 'gmail.com', 'gmial.com': 'gmail.com', 'gmail.co': 'gmail.com',
+    'gmaol.com': 'gmail.com', 'gnail.com': 'gmail.com', 'gmail.cm': 'gmail.com',
+    'yaho.com': 'yahoo.com', 'yahooo.com': 'yahoo.com', 'yaghoo.com': 'yahoo.com',
+    'hotmial.com': 'hotmail.com', 'hotmali.com': 'hotmail.com', 'homail.com': 'hotmail.com',
+    'outlok.com': 'outlook.com', 'outllok.com': 'outlook.com',
+  };
+
   const validateStep1 = () => {
     const errors: Record<string, string> = {};
-    if (!formData.fullName.trim()) errors.fullName = "Full name is required";
-    if (!formData.email.trim()) errors.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = "Invalid email format";
-    if (!formData.phone.trim()) errors.phone = "Phone number is required";
-    if (!formData.dateOfBirth) errors.dateOfBirth = "Date of birth is required";
+
+    const trimmedName = formData.fullName.trim();
+    if (!trimmedName) errors.fullName = "Full name is required";
+    else if (!/^[A-Za-z\s'-]+$/.test(trimmedName)) errors.fullName = "Full name should only contain letters";
+    else if (trimmedName.split(/\s+/).filter(Boolean).length < 2) errors.fullName = "Please enter your first and last name";
+
+    const trimmedEmail = formData.email.trim();
+    if (!trimmedEmail) errors.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) errors.email = "Invalid email format";
+    else {
+      const domain = trimmedEmail.split('@')[1]?.toLowerCase();
+      if (domain && COMMON_EMAIL_TYPOS[domain]) {
+        errors.email = `Did you mean @${COMMON_EMAIL_TYPOS[domain]}? Please double-check your email.`;
+      }
+    }
+
+    const trimmedPhone = formData.phone.trim().replace(/\s+/g, '');
+    if (!trimmedPhone) errors.phone = "Phone number is required";
+    else if (!/^(0\d{9}|\+233\d{9})$/.test(trimmedPhone)) errors.phone = "Enter a valid Ghana phone number (e.g. 024XXXXXXX or +233XXXXXXXXX)";
+
+    const trimmedWhatsapp = formData.whatsapp.trim().replace(/\s+/g, '');
+    if (trimmedWhatsapp && !/^(0\d{9}|\+233\d{9})$/.test(trimmedWhatsapp)) {
+      errors.whatsapp = "Enter a valid WhatsApp number, or leave this blank";
+    }
+
+    if (!formData.dateOfBirth) {
+      errors.dateOfBirth = "Date of birth is required";
+    } else {
+      const dob = new Date(formData.dateOfBirth);
+      const age = (Date.now() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+      if (isNaN(dob.getTime()) || dob.getTime() > Date.now()) errors.dateOfBirth = "Please enter a valid date of birth";
+      else if (age < 5 || age > 100) errors.dateOfBirth = "Please double-check this date of birth";
+    }
+
     if (!formData.gender) errors.gender = "Gender is required";
     if (!formData.country.trim()) errors.country = "Country is required";
     setFormErrors(errors);
@@ -252,6 +289,7 @@ const AdmissionFormDialog = ({ open, onClose }: AdmissionFormDialogProps) => {
                   <MessageCircle size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input type="tel" value={formData.whatsapp} onChange={(e) => updateField("whatsapp", e.target.value)} className={`${inputClass} pl-10`} placeholder="+233 55 054 5403" />
                 </div>
+                {formErrors.whatsapp && <p className={errorClass}>{formErrors.whatsapp}</p>}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
