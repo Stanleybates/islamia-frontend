@@ -1814,9 +1814,35 @@ const exportData = async (type: string) => {
               </div>
               {coursesInnerTab === "courses" && (
               <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span />
-                {isSuperAdmin && <Button variant="gold" onClick={() => setShowAddCourse(true)} className="gap-2"><Plus size={16} /> Add Course</Button>}
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                {isSuperAdmin && courses.some(c => c.status !== 'Active') && (
+                  <Button
+                    variant="outline"
+                    className="gap-2 w-full sm:w-auto"
+                    onClick={async () => {
+                      const toActivate = courses.filter(c => c.status !== 'Active');
+                      if (!window.confirm(`Activate all ${toActivate.length} upcoming course(s)? Students will immediately be able to see and register for them.`)) return;
+                      try {
+                        const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                        const token = s?.token;
+                        const csrfToken = await getCsrfToken();
+                        const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
+                        if (token) headers['Authorization'] = `Bearer ${token}`;
+                        const results = await Promise.allSettled(
+                          toActivate.map(c => apiFetch(apiUrl('/api/admin/courses/' + c.id), { method: 'PUT', headers, body: JSON.stringify({ status: 'Active' }) }))
+                        );
+                        const succeededIds = new Set(toActivate.filter((_, i) => results[i].status === 'fulfilled' && (results[i] as any).value.ok).map(c => c.id));
+                        setCourses(prev => prev.map(x => succeededIds.has(x.id) ? { ...x, status: 'Active' } : x));
+                        const failCount = toActivate.length - succeededIds.size;
+                        if (failCount > 0) toast.error(`Activated ${succeededIds.size}, ${failCount} failed`);
+                        else toast.success(`Activated ${succeededIds.size} course(s)`);
+                      } catch (e: any) { toast.error(e.message || 'Failed to activate courses'); }
+                    }}
+                  >
+                    Activate All Upcoming
+                  </Button>
+                )}
+                {isSuperAdmin && <Button variant="gold" onClick={() => setShowAddCourse(true)} className="gap-2 w-full sm:w-auto"><Plus size={16} /> Add Course</Button>}
               </div>
               {showAddCourse && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">
