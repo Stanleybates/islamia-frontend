@@ -365,6 +365,8 @@ const AdminPanel = () => {
   const [appsLimit] = useState(20);
   const [appsTotal, setAppsTotal] = useState(0);
   const [showAddStudent, setShowAddStudent] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<{ id: string; name: string; semester: string } | null>(null);
+  const [editStudentSaving, setEditStudentSaving] = useState(false);
   const [createdStudentInfo, setCreatedStudentInfo] = useState<{ name: string; indexNumber: string } | null>(null);
   const [pendingGradeCount, setPendingGradeCount] = useState(0);
   const [showAddGrade, setShowAddGrade] = useState(false);
@@ -1696,6 +1698,49 @@ const exportData = async (type: string) => {
                 </div>
 {isSuperAdmin && <Button variant="gold" onClick={() => setShowAddStudent(true)} className="gap-2"><Plus size={16} /> Add Student</Button>}
               </div>
+              {editingStudent && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !editStudentSaving && setEditingStudent(null)}>
+                  <div className="bg-card rounded-xl border border-border p-6 max-w-sm w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="font-heading font-semibold text-lg text-foreground">Edit Student</h3>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-foreground block">Full Name</label>
+                      <input value={editingStudent.name} onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })} className={inputClass} placeholder="Full Name" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-foreground block">Semester</label>
+                      <select value={editingStudent.semester} onChange={(e) => setEditingStudent({ ...editingStudent, semester: e.target.value })} className={inputClass}>
+                        {["Sem 1", "Sem 2", "Sem 3", "Sem 4"].map((s) => <option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button
+                        className="w-full sm:w-auto"
+                        disabled={editStudentSaving || !editingStudent.name.trim()}
+                        onClick={async () => {
+                          setEditStudentSaving(true);
+                          try {
+                            const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+                            const token = s?.token;
+                            const csrfToken = await getCsrfToken();
+                            const headers: any = { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken };
+                            if (token) headers['Authorization'] = `Bearer ${token}`;
+                            const res = await apiFetch(apiUrl('/api/admin/students/' + editingStudent.id), { method: 'PUT', headers, body: JSON.stringify({ username: editingStudent.name, semester: editingStudent.semester }) });
+                            if (!res.ok) { const e = await res.json(); throw new Error(e.message || 'Failed to update student'); }
+                            const updated = await res.json();
+                            setStudents(prev => prev.map(x => x.id === editingStudent.id ? { ...x, name: updated.username, semester: updated.semester } : x));
+                            toast.success('Student updated');
+                            setEditingStudent(null);
+                          } catch (e: any) { toast.error(e.message || 'Failed to update student'); }
+                          finally { setEditStudentSaving(false); }
+                        }}
+                      >
+                        {editStudentSaving ? 'Saving...' : 'Save'}
+                      </Button>
+                      <Button variant="outline" className="w-full sm:w-auto" disabled={editStudentSaving} onClick={() => setEditingStudent(null)}>Cancel</Button>
+                    </div>
+                  </div>
+                </div>
+              )}
               {createdStudentInfo && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setCreatedStudentInfo(null)}>
                   <div className="bg-card rounded-xl border border-border p-6 max-w-sm w-full space-y-4" onClick={(e) => e.stopPropagation()}>
@@ -1760,7 +1805,10 @@ const exportData = async (type: string) => {
                             <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${s.status === "Active" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{s.status}</span>
                           </td>
                           <td className="p-4 text-center">
-                            {isSuperAdmin && <button onClick={() => handleDeleteStudent(s.id)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>}
+                            <div className="flex items-center justify-center gap-1">
+                              {isSuperAdmin && <button onClick={() => setEditingStudent({ id: s.id, name: s.name, semester: s.semester || 'Sem 1' })} className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary"><Edit size={14} /></button>}
+                              {isSuperAdmin && <button onClick={() => handleDeleteStudent(s.id)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 size={14} /></button>}
+                            </div>
                           </td>
                         </tr>
                       ))}
