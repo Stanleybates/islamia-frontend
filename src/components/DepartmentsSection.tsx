@@ -1,12 +1,5 @@
 import { BookOpen, Mail, MessageCircle, Users, Phone } from "lucide-react";
 
-const academicStaff = [
-  { name: "Mustapha Abbass Bah", role: "Lecturer — Reading 1", phone: "+966 54 776 3984", email: "mabah9as@gmail.com" },
-];
-const adminStaff = [
-  { name: "Ahmed Osama", role: "Admissions & Student Affairs", phone: "+233 55 054 5403", email: "—" },
-];
-
 const WHATSAPP_NUMBER = "233550545403";
 const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Assalamu Alaikum, I would like to inquire about admission requirements.")}`;
 
@@ -50,30 +43,14 @@ const DepartmentsSection = () => {
               </p>
             </div>
 
-            <div className="mb-6">
-              <h4 className="font-heading font-semibold text-foreground mb-3 text-sm">Faculty / Staff</h4>
-              <div className="space-y-3">
-                {academicStaff.map((s) => (
-                  <div key={s.name} className="bg-background rounded-lg border border-border p-3">
-                    <p className="font-semibold text-sm text-foreground">{s.name}</p>
-                    <p className="text-xs text-muted-foreground mb-2">{s.role}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Phone size={12} className="text-primary" />{s.phone}</span>
-                      <span className="flex items-center gap-1"><Mail size={12} className="text-primary" />{s.email}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div className="flex flex-col sm:flex-row gap-3 text-xs">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Mail size={14} className="text-primary" />
                 <span>allahulmustaaninstitute@gmail.com</span>
               </div>
-              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
-                <MessageCircle size={14} className="text-green-600" />
-                <span>+233 55 054 5403</span>
+              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700">
+                <MessageCircle size={14} />
+                <span>Chat on WhatsApp</span>
               </a>
             </div>
           </div>
@@ -102,26 +79,10 @@ const DepartmentsSection = () => {
               </p>
             </div>
 
-            <div className="mb-5">
-              <h4 className="font-heading font-semibold text-foreground mb-3 text-sm">Staff</h4>
-              <div className="space-y-3">
-                {adminStaff.map((s) => (
-                  <div key={s.name} className="bg-background rounded-lg border border-border p-3">
-                    <p className="font-semibold text-sm text-foreground">{s.name}</p>
-                    <p className="text-xs text-muted-foreground mb-2">{s.role}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Phone size={12} className="text-primary" />{s.phone}</span>
-                      <span className="flex items-center gap-1"><Mail size={12} className="text-primary" />{s.email}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div className="flex flex-col sm:flex-row gap-3 text-xs mt-5">
-              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors">
-                <MessageCircle size={14} className="text-green-600" />
-                <span>+233 55 054 5403</span>
+              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700">
+                <MessageCircle size={14} />
+                <span>Chat on WhatsApp</span>
               </a>
             </div>
           </div>

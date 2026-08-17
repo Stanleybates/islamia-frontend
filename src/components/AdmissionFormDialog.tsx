@@ -373,7 +373,7 @@ const AdmissionFormDialog = ({ open, onClose }: AdmissionFormDialogProps) => {
                   href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Assalamu Alaikum, I just submitted my application to Allāhul Musta'ān Institute. My Application ID is " + assignedRegNumber + ". Please assist me.")}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-green-700 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-full bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700"
                 >
                   <MessageCircle size={16} />
                   Chat with us on WhatsApp

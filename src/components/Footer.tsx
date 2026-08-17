@@ -71,6 +71,9 @@ const Footer = () => {
               <Link to="/student" className="block text-sm text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 Student Portal
               </Link>
+              <Link to="/privacy-policy" className="block text-sm text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+                Privacy Policy
+              </Link>
             </div>
           </div>
 
@@ -94,9 +97,9 @@ const Footer = () => {
                 <Phone size={16} className="flex-shrink-0 text-primary-foreground/70 group-hover:text-primary-foreground" />
                 <p className="text-sm text-primary-foreground/70 group-hover:text-primary-foreground">+233 55 054 5403</p>
               </a>
-              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 hover:text-primary-foreground transition-colors group">
-                <MessageCircle size={16} className="flex-shrink-0 text-green-400" />
-                <p className="text-sm text-primary-foreground/70 group-hover:text-primary-foreground">Message on WhatsApp</p>
+              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700">
+                <MessageCircle size={16} className="flex-shrink-0" />
+                <span>Message on WhatsApp</span>
               </a>
               <div className="flex items-center gap-3">
                 <Mail size={16} className="flex-shrink-0 text-primary-foreground/70" />

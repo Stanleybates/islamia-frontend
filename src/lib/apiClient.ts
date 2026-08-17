@@ -27,6 +27,9 @@ async function fetchJson(path: string, body?: any) {
 export const apiClient = {
   // Admin
   adminLogin: async (email: string, password: string) => {
+    if (!useBackend) {
+      throw new Error("Admin login requires backend authentication");
+    }
     if (useBackend) {
       const res = await fetchJson(`/api/admin/login`, { email, password });
       // backend returns { message, token, user }
@@ -35,13 +38,6 @@ export const apiClient = {
 }
       return res;
     }
-    const admins: AdminAccount[] = JSON.parse(localStorage.getItem("ami_admin_accounts") || "[]");
-    const admin = admins.find((a) => a.email === email && a.password === password);
-    if (!admin) throw new Error("Invalid email or password");
-    if (admin.status === "pending") throw new Error("pending");
-    if (admin.status === "denied") throw new Error("denied");
-    localStorage.setItem("ami_admin_session", JSON.stringify(admin));
-    return admin;
   },
 
   adminSignup: async (payload: { username?: string; email: string; phone?: string; password: string }) => {

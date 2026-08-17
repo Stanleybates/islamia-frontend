@@ -368,7 +368,7 @@ const AdminPanel = () => {
     } catch {}
 
     if (!useBackend) {
-      // Backend auth not enabled: block access and clear any local session to avoid bypass.
+      // Fail closed: admin access requires a backend-issued session.
       localStorage.removeItem('ami_admin_session');
       setIsLoggedIn(false);
       toast.error('Admin access requires backend authentication. Enable server auth to continue.');
