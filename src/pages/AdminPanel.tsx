@@ -443,7 +443,7 @@ const AdminPanel = () => {
         apiFetch(apiUrl('/api/admin/payments?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
         apiFetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : null),
         apiFetch(apiUrl('/api/admin/students?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/courses'), { headers }).then(r => r.ok ? r.json() : null),
+        apiFetch(apiUrl('/api/admin/courses?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
       ]);
       if (gradesRes?.data) setGrades(gradesRes.data);
       else if (Array.isArray(gradesRes)) setGrades(gradesRes);
@@ -542,7 +542,7 @@ const AdminPanel = () => {
   apiFetch(apiUrl('/api/admin/payments?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : {}),
   apiFetch(apiUrl('/api/admin/students?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/courses'), { headers }).then(r => r.ok ? r.json() : []),
+  apiFetch(apiUrl('/api/admin/courses?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/settings'), { headers }).then(r => r.ok ? r.json() : {}),
   apiFetch(apiUrl('/api/admin/assessments'), { headers }).then(r => r.ok ? r.json() : { data: [] }),
 ]);
@@ -1261,6 +1261,8 @@ const exportData = async (type: string) => {
 
 
 
+  const currentAssignedCourseIds = normalizeAssignedCourses(currentAdmin?.assignedCourses);
+
   const filteredStudents = students.filter((s) => {
     const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.id.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
@@ -1276,7 +1278,6 @@ const exportData = async (type: string) => {
   const paginatedStudents = visibleStudents.slice((studentsPage - 1) * studentsLimit, studentsPage * studentsLimit);
 
   const pendingApps = applications.filter((a) => a.status === "Pending");
-  const currentAssignedCourseIds = normalizeAssignedCourses(currentAdmin?.assignedCourses);
   const currentAssignedCourses = currentAssignedCourseIds.map((courseId) => {
     const found = courses.find((course) => course.id === courseId);
     return {
