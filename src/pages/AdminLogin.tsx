@@ -11,6 +11,7 @@ import useDocumentTitle from "@/hooks/useDocumentTitle";
 const AdminLogin = () => {
   useDocumentTitle("Admin Login | Allahul Musta'an Institute");
   const navigate = useNavigate();
+  const useBackend = import.meta.env.VITE_USE_BACKEND === "true";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
@@ -19,6 +20,10 @@ const AdminLogin = () => {
 
   const handleLogin = async () => {
     setErrors([]);
+    if (!useBackend) {
+      setErrors(["Admin login requires backend authentication."]);
+      return;
+    }
     setLoading(true);
     try {
       await apiClient.adminLogin(email, password);

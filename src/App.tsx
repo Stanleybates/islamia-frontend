@@ -16,6 +16,7 @@ import StudentSignup from "./pages/StudentSignup.tsx";
 import StudentForgot from "./pages/StudentForgot.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import PaymentSuccess from "./pages/PaymentSuccess.tsx";
+import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/student" element={<StudentPortal />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/student/login" element={<StudentLogin />} />

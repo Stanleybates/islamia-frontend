@@ -51,7 +51,7 @@ const StudentPortal = () => {
   };
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "courses" | "assessments" | "results" | "notifications" | "security" | "timetable">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "courses" | "fees" | "assessments" | "results" | "notifications" | "timetable" | "security">("dashboard");
   const [showPassword, setShowPassword] = useState(false);
   const [showSecurityPassword, setShowSecurityPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -740,40 +740,52 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
         </div>
       </header>
 
-      <div className="container-max px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-8">
-          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-foreground">As-salāmu ʿalaykum, {session.name || "Student"} 👋</h1>
-          <p className="font-semibold text-primary text-lg">{session.index_number || session.indexNumber || session.regNumber}</p>
-        </div>
+      <div className="flex min-h-[calc(100vh-64px)]">
+        {/* Sidebar */}
+        <aside className="w-56 bg-card border-r border-border overflow-y-auto">
+          <div className="p-6">
+            <div className="mb-8">
+              <h2 className="font-heading text-sm font-semibold text-foreground mb-2">As-salāmu ʿalaykum</h2>
+              <p className="text-lg font-bold text-primary">{session.name || "Student"}</p>
+              <p className="text-xs text-muted-foreground mt-1">{session.index_number || session.indexNumber || session.regNumber}</p>
+            </div>
 
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-          {[
-            { key: "dashboard", label: "Dashboard", icon: Home },
-            { key: "courses", label: "My Courses", icon: BookOpen },
-            { key: "fees", label: "Fees", icon: CreditCard },
-            { key: "assessments", label: "Assessments", icon: ClipboardList },
-            { key: "results", label: "Results", icon: Award },
-            { key: "notifications", label: "Notifications", icon: Bell, badge: portalNotifications.filter((n: any) => !n.read).length },
-            { key: "timetable", label: "Timetable", icon: Clock },
-            { key: "security", label: "Change Password", icon: KeyRound },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
-                activeTab === tab.key ? "bg-primary text-primary-foreground shadow-md" : "bg-card text-muted-foreground hover:bg-muted border border-border"
-              }`}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-              {(tab as any).badge > 0 && (
-                <span className="bg-destructive text-destructive-foreground text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                  {(tab as any).badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+            <nav className="space-y-1">
+              {[
+                { key: "dashboard", label: "Dashboard", icon: Home },
+                { key: "courses", label: "My Courses", icon: BookOpen },
+                { key: "fees", label: "Fees", icon: CreditCard },
+                { key: "assessments", label: "Assessments", icon: ClipboardList },
+                { key: "results", label: "Results", icon: Award },
+                { key: "notifications", label: "Notifications", icon: Bell, badge: portalNotifications.filter((n: any) => !n.read).length },
+                { key: "timetable", label: "Timetable", icon: Clock },
+                { key: "security", label: "Change Password", icon: KeyRound },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  onClick={() => setActiveTab(item.key as any)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-left ${
+                    activeTab === item.key
+                      ? "bg-primary/10 text-primary border-l-2 border-primary"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  }`}
+                >
+                  <item.icon size={18} />
+                  {item.label}
+                  {(item as any).badge > 0 && (
+                    <span className="ml-auto bg-destructive text-destructive-foreground text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                      {(item as any).badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="container-max px-4 sm:px-6 lg:px-8 py-6">
 
         {activeTab === "dashboard" && (
           <div className="space-y-6">
@@ -1419,6 +1431,8 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
             </div>
           </div>
         )}
+          </div>
+        </main>
       </div>
     </div>
   );
