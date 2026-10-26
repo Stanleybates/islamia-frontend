@@ -38,7 +38,7 @@ const Navbar = () => {
                   {link.label}
                 </a>
               ))}
-              <Link to="/student/login" className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-primary transition-colors">
+              <Link to="/student" className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-primary transition-colors">
                 <GraduationCap size={16} />Student Portal
               </Link>
               <ThemeToggle />
@@ -66,7 +66,7 @@ const Navbar = () => {
                     {link.label}
                   </a>
                 ))}
-                <Link to="/student/login" onClick={() => setIsOpen(false)} className="px-4 py-3 text-sm font-medium text-foreground/80 hover:text-primary hover:bg-muted rounded-lg transition-colors flex items-center gap-2">
+                <Link to="/student" onClick={() => setIsOpen(false)} className="px-4 py-3 text-sm font-medium text-foreground/80 hover:text-primary hover:bg-muted rounded-lg transition-colors flex items-center gap-2">
                   <GraduationCap size={16} />Student Portal
                 </Link>
                 <button

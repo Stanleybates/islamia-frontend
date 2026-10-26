@@ -51,7 +51,7 @@ const StudentForgot = () => {
               </div>
               <h2 className="font-bold text-foreground">Check Your Email</h2>
               <p className="text-sm text-muted-foreground">A temporary password has been sent to <span className="font-semibold text-foreground">{email}</span>. Please check your inbox (and spam folder), then use it to log in.</p>
-              <Link to="/student/login" className="block text-primary text-sm mt-4">← Back to Login</Link>
+              <Link to="/student" className="block text-primary text-sm mt-4">← Back to Login</Link>
             </div>
           ) : (
             <div className="space-y-3">
@@ -64,7 +64,7 @@ const StudentForgot = () => {
                 {loading ? "Sending..." : "Send Temporary Password"}
               </Button>
               <div className="text-sm text-center mt-2">
-                <Link to="/student/login" className="text-primary">← Back to Login</Link>
+                <Link to="/student" className="text-primary">← Back to Login</Link>
               </div>
             </div>
           )}

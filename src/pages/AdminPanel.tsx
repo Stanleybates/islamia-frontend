@@ -1088,6 +1088,158 @@ const exportData = async (type: string) => {
     } catch (e: any) { toast.error(e.message || 'Could not delete student'); }
   };
 
+  const exportPdfTable = (title: string, columns: Array<{ key: string; label: string }>, rows: Array<Record<string, any>>, fileName: string) => {
+    if (!rows.length) {
+      toast.info(`No records available to export.`);
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const left = 10;
+    const top = 22;
+    const usableWidth = pageWidth - left * 2;
+    const colWidth = usableWidth / columns.length;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(title, pageWidth / 2, 16, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, left, 24);
+
+    let y = top;
+    doc.setFont('helvetica', 'bold');
+    columns.forEach((column, index) => {
+      const x = left + index * colWidth;
+      doc.text(String(column.label), x + 2, y + 6, { maxWidth: colWidth - 4 });
+    });
+
+    y += 8;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(left, y, pageWidth - left, y);
+    y += 4;
+
+    doc.setFont('helvetica', 'normal');
+    rows.forEach((row) => {
+      const rowHeight = Math.max(
+        1,
+        ...columns.map((column) => {
+          const value = row[column.key] ?? '—';
+          const lines = doc.splitTextToSize(String(value), Math.max(18, colWidth - 8));
+          return lines.length;
+        })
+      ) * 5;
+
+      if (y + rowHeight > pageHeight - 12) {
+        doc.addPage();
+        y = 18;
+      }
+
+      columns.forEach((column, index) => {
+        const x = left + index * colWidth;
+        const value = row[column.key] ?? '—';
+        const lines = doc.splitTextToSize(String(value), Math.max(18, colWidth - 8));
+        doc.text(lines, x + 2, y + 5, { maxWidth: colWidth - 4 });
+      });
+
+      y += rowHeight + 4;
+    });
+
+    doc.save(fileName);
+    toast.success(`Exported ${rows.length} record${rows.length === 1 ? '' : 's'} to PDF`);
+  };
+
+  const handleExportStudents = () => {
+    const exportRows = (visibleStudents.length ? visibleStudents : students).map((student) => ({
+      name: student.name || '—',
+      email: student.email || '—',
+      indexNumber: student.indexNumber || '—',
+      semester: student.semester || '—',
+    }));
+
+    exportPdfTable('Student List', [
+      { key: 'name', label: 'Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'indexNumber', label: 'Index Number' },
+      { key: 'semester', label: 'Semester' },
+    ], exportRows, `students-export-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const handleExportPayments = () => {
+    const rows = paymentsState.map((payment) => ({
+      student: payment.student || payment.student_name || payment.user_name || payment.user || payment.student_index_number || payment.student_email || '—',
+      amount: typeof payment.amount === 'number' ? `GHS ${payment.amount}` : (payment.amount || '—'),
+      method: payment.method || payment.payment_method || '—',
+      date: (payment.created_at || payment.date || '').split('T')[0] || '—',
+      status: payment.status || '—',
+    }));
+
+    exportPdfTable('Payment Records', [
+      { key: 'student', label: 'Student' },
+      { key: 'amount', label: 'Amount' },
+      { key: 'method', label: 'Method' },
+      { key: 'date', label: 'Date' },
+      { key: 'status', label: 'Status' },
+    ], rows, `payments-export-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const handleExportCourses = () => {
+    const rows = courses.map((course) => ({
+      title: course.title || '—',
+      semester: course.semester || '—',
+      enrolled: course.enrolled ?? 0,
+      status: course.status || '—',
+    }));
+
+    exportPdfTable('Course List', [
+      { key: 'title', label: 'Course' },
+      { key: 'semester', label: 'Semester' },
+      { key: 'enrolled', label: 'Enrolled' },
+      { key: 'status', label: 'Status' },
+    ], rows, `courses-export-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const handleExportStaff = () => {
+    const rows = adminAccounts.map((staffMember) => ({
+      name: staffMember.username || '—',
+      email: staffMember.email || '—',
+      phone: staffMember.phone || staffMember.phone_number || '—',
+      assignedCourses: normalizeAssignedCourses(staffMember.assignedCourses || []).map((courseId) => getCourseTitle(courseId, courses)).join(', ') || '—',
+      status: staffMember.status || 'pending',
+    }));
+
+    exportPdfTable('Staff Directory', [
+      { key: 'name', label: 'Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone', label: 'Phone' },
+      { key: 'assignedCourses', label: 'Assigned Courses' },
+      { key: 'status', label: 'Status' },
+    ], rows, `staff-export-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  const handleExportGrades = () => {
+    const exportRows = (isSuperAdmin ? grades : grades.filter((g: any) => currentAssignedCourseIds.includes(g.course))).map((grade) => ({
+      student: grade.student || '—',
+      course: grade.course || '—',
+      midterm: grade.midterm ?? '—',
+      final: grade.final ?? '—',
+      grade: grade.grade || '—',
+      status: grade.status || '—',
+    }));
+
+    exportPdfTable('Grade Records', [
+      { key: 'student', label: 'Student' },
+      { key: 'course', label: 'Course' },
+      { key: 'midterm', label: 'Midterm' },
+      { key: 'final', label: 'Final' },
+      { key: 'grade', label: 'Grade' },
+      { key: 'status', label: 'Status' },
+    ], exportRows, `grades-export-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   const handleAddGrade = async () => {
     if (!newGrade.student || !newGrade.course || !newGrade.midterm || !newGrade.final) return;
 
@@ -1375,7 +1527,7 @@ const exportData = async (type: string) => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform lg:translate-x-0 lg:static flex flex-col ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:self-start flex flex-col ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-4 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 shadow-lg backdrop-blur-md">
@@ -1697,7 +1849,12 @@ const exportData = async (type: string) => {
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`${inputClass} pl-10`} placeholder="Search students..." />
                 </div>
-{isSuperAdmin && <Button variant="gold" onClick={() => setShowAddStudent(true)} className="gap-2"><Plus size={16} /> Add Student</Button>}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleExportStudents} className="gap-2">
+                    <Download size={16} /> Export PDF
+                  </Button>
+                  {isSuperAdmin && <Button variant="gold" onClick={() => setShowAddStudent(true)} className="gap-2"><Plus size={16} /> Add Student</Button>}
+                </div>
               </div>
               {editingStudent && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !editStudentSaving && setEditingStudent(null)}>
@@ -1852,7 +2009,10 @@ const exportData = async (type: string) => {
           )}
           {activeTab === "courses" && (
             <div className="space-y-4">
-              <h2 className="font-heading text-lg font-bold text-foreground">Courses</h2>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="font-heading text-lg font-bold text-foreground">Courses</h2>
+                <Button variant="outline" onClick={handleExportCourses} className="gap-2"><Download size={16} /> Export PDF</Button>
+              </div>
               <div className="flex gap-2 flex-wrap">
                 {["courses", "results", "schedule"].map(t => (
                   <button key={t} onClick={() => setCoursesInnerTab(t as any)}
@@ -2333,9 +2493,12 @@ const exportData = async (type: string) => {
                   <h2 className="font-heading text-lg font-bold text-foreground">Grades & Results</h2>
                   <p className="text-sm text-muted-foreground mt-1">{pendingGradeCount} grade{pendingGradeCount === 1 ? "" : "s"} pending approval.</p>
                 </div>
-                {(isSuperAdmin || currentAssignedCourseIds.length > 0) && (
-                  <Button variant="gold" onClick={() => setShowAddGrade(true)} className="gap-2"><Plus size={16} /> Add Grade</Button>
-                )}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleExportGrades} className="gap-2"><Download size={16} /> Export PDF</Button>
+                  {(isSuperAdmin || currentAssignedCourseIds.length > 0) && (
+                    <Button variant="gold" onClick={() => setShowAddGrade(true)} className="gap-2"><Plus size={16} /> Add Grade</Button>
+                  )}
+                </div>
               </div>
               {!isSuperAdmin && currentAssignedCourseIds.length === 0 && (
                 <div className="bg-accent/10 border border-accent/20 rounded-xl p-5 text-center">
@@ -2476,7 +2639,10 @@ const exportData = async (type: string) => {
           )}
           {activeTab === "payments" && isSuperAdmin && (
             <div className="space-y-4">
-              <h2 className="font-heading text-lg font-bold text-foreground">Payment Records</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-heading text-lg font-bold text-foreground">Payment Records</h2>
+                <Button variant="outline" onClick={handleExportPayments} className="gap-2"><Download size={16} /> Export PDF</Button>
+              </div>
               <div className="bg-card rounded-xl border border-border overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -2545,11 +2711,14 @@ const exportData = async (type: string) => {
           )}
           {activeTab === "staff" && isSuperAdmin && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <h2 className="font-heading text-lg font-bold text-foreground">Staff Directory</h2>
-                {isSuperAdmin && (
-                  <Button variant="gold" onClick={() => setShowAddStaff(true)} className="gap-2"><Plus size={16} /> Add Staff</Button>
-                )}
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handleExportStaff} className="gap-2"><Download size={16} /> Export PDF</Button>
+                  {isSuperAdmin && (
+                    <Button variant="gold" onClick={() => setShowAddStaff(true)} className="gap-2"><Plus size={16} /> Add Staff</Button>
+                  )}
+                </div>
               </div>
               {showAddStaff && isSuperAdmin && (
                 <div className="bg-card rounded-xl border border-border p-5 space-y-3">

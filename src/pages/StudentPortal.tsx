@@ -712,45 +712,45 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-50">
-        <div className="container-max px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <img src={logo} alt="Logo" className="h-7 w-auto" />
+        <div className="container-max px-3 sm:px-6 lg:px-8 flex items-center justify-between h-14 sm:h-16">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <img src={logo} alt="Logo" className="h-6 sm:h-7 w-auto" />
             </div>
-            <div>
-              <p className="font-heading text-sm font-bold text-primary">Student Portal</p>
-              <p className="text-xs text-muted-foreground">Allāhul Musta'ān Institute</p>
+            <div className="min-w-0">
+              <p className="font-heading text-xs sm:text-sm font-bold text-primary">Student Portal</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">Allāhul Musta'ān Institute</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Link to="/" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
-              <Home size={16} />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link to="/" className="text-xs sm:text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
+              <Home size={14} className="sm:w-[16px] sm:h-[16px]" />
               <span className="hidden sm:inline">Home</span>
             </Link>
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <User size={18} />
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <User size={16} className="sm:w-[18px] sm:h-[18px]" />
               </div>
-              <span className="text-sm font-medium text-foreground hidden sm:inline">{session.name || "Student"}</span>
+              <span className="text-sm font-medium text-foreground">{session.name || "Student"}</span>
             </div>
             <button onClick={handleLogout} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-destructive transition-colors" title="Logout">
-              <LogOut size={18} />
+              <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
           </div>
         </div>
       </header>
 
-      <div className="flex min-h-[calc(100vh-64px)]">
+      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-56px)] sm:min-h-[calc(100vh-64px)]">
         {/* Sidebar */}
-        <aside className="w-56 bg-card border-r border-border overflow-y-auto">
-          <div className="p-6">
-            <div className="mb-8">
-              <h2 className="font-heading text-sm font-semibold text-foreground mb-2">As-salāmu ʿalaykum</h2>
-              <p className="text-lg font-bold text-primary">{session.name || "Student"}</p>
-              <p className="text-xs text-muted-foreground mt-1">{session.index_number || session.indexNumber || session.regNumber}</p>
+        <aside className="w-full lg:w-72 xl:w-80 bg-card border-b border-border lg:border-r lg:border-b-0 overflow-y-auto">
+          <div className="p-4 sm:p-5 lg:p-6">
+            <div className="mb-6 sm:mb-8">
+              <h2 className="font-heading text-base sm:text-lg font-semibold text-foreground mb-1.5">As-salāmu ʿalaykum</h2>
+              <p className="text-xl sm:text-2xl font-bold text-primary leading-tight">{session.name || "Student"}</p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">{session.index_number || session.indexNumber || session.regNumber}</p>
             </div>
 
-            <nav className="space-y-1">
+            <nav className="space-y-1.5 sm:space-y-2">
               {[
                 { key: "dashboard", label: "Dashboard", icon: Home },
                 { key: "courses", label: "My Courses", icon: BookOpen },
@@ -764,16 +764,16 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                 <button
                   key={item.key}
                   onClick={() => setActiveTab(item.key as any)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-left ${
+                  className={`w-full flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-all text-left ${
                     activeTab === item.key
-                      ? "bg-primary/10 text-primary border-l-2 border-primary"
+                      ? "bg-primary/10 text-primary border-l-2 border-primary lg:border-l-0 lg:border-b-2 lg:border-primary"
                       : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   }`}
                 >
-                  <item.icon size={18} />
-                  {item.label}
+                  <item.icon size={18} className="shrink-0" />
+                  <span className="truncate">{item.label}</span>
                   {(item as any).badge > 0 && (
-                    <span className="ml-auto bg-destructive text-destructive-foreground text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                    <span className="ml-auto bg-destructive text-destructive-foreground text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                       {(item as any).badge}
                     </span>
                   )}
@@ -784,13 +784,13 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="container-max px-4 sm:px-6 lg:px-8 py-6">
+        <main className="flex-1 overflow-y-auto bg-muted/20">
+          <div className="container-max px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
 
         {activeTab === "dashboard" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-card rounded-xl border border-border p-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary"><BookOpen size={20} /></div>
                   <div>
@@ -799,7 +799,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                   </div>
                 </div>
               </div>
-              <div className="bg-card rounded-xl border border-border p-5">
+              <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent"><ClipboardList size={20} /></div>
                   <div>
@@ -808,7 +808,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                   </div>
                 </div>
               </div>
-              <div className="bg-card rounded-xl border border-border p-5">
+              <div className="bg-card rounded-xl border border-border p-4 sm:p-5 sm:col-span-2 xl:col-span-1">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary"><GraduationCap size={20} /></div>
                   <div>
@@ -816,19 +816,19 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                     <p className="text-xs text-muted-foreground">Current Semester</p>
                   </div>
                 </div>
-                <div className="mt-3 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
+                <div className="mt-3 rounded-lg bg-muted/40 p-3 text-[11px] sm:text-xs text-muted-foreground space-y-1">
                   <p><span className="font-medium text-foreground">Admission Starts:</span> {formatSemesterDate(semesterSettings.admissionStart)}</p>
                   <p><span className="font-medium text-foreground">Admission Ends:</span> {formatSemesterDate(semesterSettings.admissionEnd)}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <h3 className="font-heading text-lg font-semibold text-foreground mb-2">Course Registration</h3>
               <p className="text-sm text-muted-foreground">
                 You can register for your semester courses after the semester fee is notified and paid. Once payment is confirmed, the course list for the new semester will appear here.
               </p>
-              <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+              <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3 text-sm break-words">
                 <span className="font-medium text-foreground">Admission Status:</span>{" "}
                 <span className={admissionOpen ? "text-green-600" : "text-amber-600"}>{admissionCountdown}</span>
               </div>
@@ -838,28 +838,28 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
         {activeTab === "courses" && (
           <div className="space-y-4">
-            <div className="bg-card rounded-xl border border-border p-5">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
               <h3 className="font-heading text-lg font-semibold text-foreground mb-1">Course Registration</h3>
               <p className="text-sm text-muted-foreground">
                 Below are the courses available for your semester. Register for the ones you want to enroll in.
               </p>
             </div>
             {studentCourses.length === 0 && (
-              <div className="bg-card rounded-xl border border-border p-8 text-center text-muted-foreground">
+              <div className="bg-card rounded-xl border border-border p-6 sm:p-8 text-center text-muted-foreground">
                 No courses available for your semester yet. Check back later.
               </div>
             )}
             {studentCourses.map((course: any) => (
-              <div key={course.id} className="bg-card rounded-xl border border-border p-5 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
+              <div key={course.id} className="bg-card rounded-xl border border-border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                     <BookOpen size={18} />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="font-heading text-base font-semibold text-foreground truncate">{course.title}</h4>
+                    <h4 className="font-heading text-base font-semibold text-foreground break-words">{course.title}</h4>
                     <p className="text-sm text-muted-foreground mt-0.5">{course.semester}</p>
                     {course.teacherName && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5 break-all">
                         👤 {course.teacherName}
                         {course.teacherEmail && <span> · {course.teacherEmail}</span>}
                       </p>
@@ -868,7 +868,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                 </div>
                 <Button
                   variant={course.enrolled ? "outline" : "gold"}
-                  className="flex-shrink-0 text-sm px-4 py-2"
+                  className="w-full sm:w-auto flex-shrink-0 text-sm px-4 py-2"
                   onClick={async () => {
                     const session = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
                     const token = session?.token;
@@ -899,7 +899,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
         {activeTab === "fees" && (
           <div className="space-y-4">
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <h3 className="font-heading text-lg font-semibold text-foreground mb-1">Semester Fee</h3>
               {!feeStatus ? (
                 <p className="text-sm text-muted-foreground">Loading...</p>
@@ -909,7 +909,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                 <p className="text-sm text-muted-foreground">No active semester found on your account.</p>
               ) : (
                 <div className="space-y-4">
-                  <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm space-y-1">
+                  <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm space-y-1 break-words">
                     <p><span className="font-medium text-foreground">Current Semester:</span> {feeStatus.semester}</p>
                     <p><span className="font-medium text-foreground">Fee:</span> {feeStatus.fee != null ? `GHS ${feeStatus.fee}` : 'Not yet set by the institute'}</p>
                     <p><span className="font-medium text-foreground">Status:</span>{" "}
@@ -919,7 +919,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                     </p>
                   </div>
                   {!feeStatus.alreadyPaid && feeStatus.fee != null && (
-                    <Button variant="gold" onClick={handlePayFee} disabled={feePaying}>
+                    <Button variant="gold" onClick={handlePayFee} disabled={feePaying} className="w-full sm:w-auto">
                       {feePaying ? 'Opening checkout...' : `Pay GHS ${feeStatus.fee} Now`}
                     </Button>
                   )}
@@ -937,19 +937,19 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
         {activeTab === "assessments" && (
           <div className="space-y-4">
-            <div className="bg-card rounded-xl border border-border p-5">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
               <div className="flex items-start gap-3">
                 <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                   <ClipboardList size={22} />
                 </div>
-                <div>
-                  <div className="flex items-center justify-between gap-3">
+                <div className="w-full">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h3 className="font-heading text-lg font-semibold text-foreground">Your Assessments</h3>
                       <p className="text-sm text-muted-foreground mt-0.5">Assessments and results posted by your staff.</p>
                     </div>
                     {studentExams.length > 0 && (
-                      <Button variant="outline" onClick={downloadExamTimetable} className="gap-2 flex-shrink-0">
+                      <Button variant="outline" onClick={downloadExamTimetable} className="gap-2 flex-shrink-0 w-full sm:w-auto">
                         <FileText size={14} /> Download Exam Schedule
                       </Button>
                     )}
@@ -973,14 +973,14 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                 </div>
               ))}
             </div>
-            <div className="bg-card rounded-xl border border-border p-5 space-y-3">
-              <div className="flex items-center justify-between gap-3">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-5 space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="font-heading text-lg font-semibold text-foreground">Available Exams</h3>
                   <p className="text-sm text-muted-foreground mt-0.5">Open an exam link below to start the exam. Older question-based exams are still supported.</p>
                 </div>
                 {selectedExam && (
-                  <Button variant="outline" onClick={() => { setSelectedExam(null); setExamAnswers({}); setExamScore(null); }}>
+                  <Button variant="outline" onClick={() => { setSelectedExam(null); setExamAnswers({}); setExamScore(null); }} className="w-full sm:w-auto">
                     Close Exam
                   </Button>
                 )}
@@ -998,18 +998,18 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                     const isClosed = cd?.status === 'closed';
                     const isUpcoming = cd?.status === 'upcoming';
                     return (
-                      <div key={exam.id} className={`rounded-xl border p-5 ${isActive ? 'border-primary bg-primary/5' : 'border-border'}`}>
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                      <div key={exam.id} className={`rounded-xl border p-4 sm:p-5 ${isActive ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0">
-                            <p className="font-medium text-foreground">{exam.title}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">{exam.course} · {exam.duration || 60} mins{exam.num_questions ? ` · ${exam.num_questions} questions` : ''}</p>
-                            {exam.instructions && <p className="text-xs text-muted-foreground mt-0.5">{exam.instructions}</p>}
+                            <p className="font-medium text-foreground break-words">{exam.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 break-words">{exam.course} · {exam.duration || 60} mins{exam.num_questions ? ` · ${exam.num_questions} questions` : ''}</p>
+                            {exam.instructions && <p className="text-xs text-muted-foreground mt-0.5 break-words">{exam.instructions}</p>}
                             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                               <Clock size={12} />
                               {exam.start_time ? new Date(exam.start_time).toLocaleString() : ''} — {exam.end_time ? new Date(exam.end_time).toLocaleString() : ''}
                             </p>
                           </div>
-                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <div className="flex flex-col items-start sm:items-end gap-2 flex-shrink-0">
                             {isClosed && (
                               <span className="text-xs font-semibold px-3 py-1 rounded-full bg-destructive/10 text-destructive">Exam Closed</span>
                             )}
@@ -1045,8 +1045,8 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
             </div>
 
             {selectedExam && (
-              <div className="bg-card rounded-xl border border-border p-5 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-card rounded-xl border border-border p-4 sm:p-5 space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="font-heading text-lg font-semibold text-foreground">{selectedExam.title}</h3>
                     <p className="text-sm text-muted-foreground">{selectedExam.course} · {selectedExam.duration || "60"} minutes</p>
@@ -1087,7 +1087,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                             {index + 1}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-foreground">{question.question}</p>
+                            <p className="font-medium text-foreground break-words">{question.question}</p>
                             <p className="text-xs text-muted-foreground mt-0.5">Choose one answer</p>
                           </div>
                         </div>
@@ -1101,14 +1101,14 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                                 checked={examAnswers[question.id] === option}
                                 onChange={() => setExamAnswers(prev => ({ ...prev, [question.id]: option }))}
                               />
-                              <span>{option}</span>
+                              <span className="break-words">{option}</span>
                             </label>
                           ))}
                         </div>
                       </div>
                     ))}
 
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-col sm:flex-row flex-wrap items-stretch gap-3">
                       <Button
                         variant="gold"
                         onClick={() => {
@@ -1119,10 +1119,11 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                           setExamScore({ score, total: questions.length });
                           toast.success(`Exam submitted. Score: ${score}/${questions.length}`);
                         }}
+                        className="w-full sm:w-auto"
                       >
                         Submit Exam
                       </Button>
-                      <Button variant="outline" onClick={() => { setExamAnswers({}); setExamScore(null); }}>
+                      <Button variant="outline" onClick={() => { setExamAnswers({}); setExamScore(null); }} className="w-full sm:w-auto">
                         Reset Answers
                       </Button>
                     </div>
@@ -1133,15 +1134,15 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
             <div className="space-y-3">
               {studentAssessments.filter((a) => a.type !== "Exam").map((a) => (
-                <div key={a.id || a.title} className="bg-card rounded-xl border border-border p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div key={a.id || a.title} className="bg-card rounded-xl border border-border p-4 sm:p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3 min-w-0">
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                         {a.type === "Quiz" ? <CheckCircle2 size={18} /> : <FileText size={18} />}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-foreground truncate">{a.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{a.course} · {a.type} · Weight {a.weight}</p>
+                        <p className="font-medium text-foreground break-words">{a.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 break-words">{a.course} · {a.type} · Weight {a.weight}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 inline-flex items-center gap-1"><Clock size={12} /> Posted {a.posted}</p>
                       </div>
                     </div>
@@ -1160,12 +1161,12 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
         {activeTab === "results" && (
           <div className="space-y-4">
-            <div className="bg-card rounded-xl border border-border p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h3 className="font-heading text-lg font-semibold text-foreground">Transcript Download</h3>
                 <p className="text-sm text-muted-foreground mt-1">Download a printable transcript with your results and summary.</p>
               </div>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-3">
                 <div className="rounded-lg border border-border bg-muted/30 px-4 py-2 text-sm">
                   <span className="text-muted-foreground">CGPA</span>{" "}
                   <span className="font-semibold text-foreground">{transcriptGpa}</span>
@@ -1174,14 +1175,14 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                   <span className="text-muted-foreground">Credits</span>{" "}
                   <span className="font-semibold text-foreground">{gpaData.totalCredits}</span>
                 </div>
-                <Button variant="gold" onClick={downloadTranscript} disabled={studentResults.length === 0}>
+                <Button variant="gold" onClick={downloadTranscript} disabled={studentResults.length === 0} className="w-full sm:w-auto">
                   Download Transcript
                 </Button>
               </div>
             </div>
 
             {Object.keys(gpaData.gpa).length > 0 && (
-              <div className="bg-card rounded-xl border border-border p-5">
+              <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
                 <h4 className="font-heading text-base font-semibold text-foreground mb-3">GPA by Semester</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {Object.entries(gpaData.gpa).map(([sem, gpa]) => (
@@ -1212,22 +1213,22 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                         </span>
                       </div>
                       <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full min-w-[420px] text-sm">
                           <thead>
                             <tr className="border-b border-border bg-muted/50">
-                              <th className="text-left p-4 font-semibold text-foreground">Course</th>
-                              <th className="text-center p-4 font-semibold text-foreground">Midterm</th>
-                              <th className="text-center p-4 font-semibold text-foreground">Final</th>
-                              <th className="text-center p-4 font-semibold text-foreground">Grade</th>
+                              <th className="text-left p-3 sm:p-4 font-semibold text-foreground">Course</th>
+                              <th className="text-center p-3 sm:p-4 font-semibold text-foreground">Midterm</th>
+                              <th className="text-center p-3 sm:p-4 font-semibold text-foreground">Final</th>
+                              <th className="text-center p-3 sm:p-4 font-semibold text-foreground">Grade</th>
                             </tr>
                           </thead>
                           <tbody>
                             {studentResults.filter((r: any) => (r.semester || 'Current Semester') === sem).map((r: any) => (
                               <tr key={`${r.course}-${r.grade}-${r.midterm}`} className="border-b border-border last:border-0">
-                                <td className="p-4 text-foreground">{r.course}</td>
-                                <td className="p-4 text-center text-muted-foreground">{r.midterm}</td>
-                                <td className="p-4 text-center text-muted-foreground">{r.final}</td>
-                                <td className="p-4 text-center">
+                                <td className="p-3 sm:p-4 text-foreground break-words">{r.course}</td>
+                                <td className="p-3 sm:p-4 text-center text-muted-foreground">{r.midterm}</td>
+                                <td className="p-3 sm:p-4 text-center text-muted-foreground">{r.final}</td>
+                                <td className="p-3 sm:p-4 text-center">
                                   <span className="bg-primary/10 text-primary font-bold px-3 py-1 rounded-full text-xs">{r.grade}</span>
                                 </td>
                               </tr>
@@ -1247,7 +1248,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
           <div className="space-y-3">
             {/* Header with mark all read */}
             {portalNotifications.length > 0 && (
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <p className="text-sm text-muted-foreground">
                   {portalNotifications.filter(n => !n.read).length} unread
                 </p>
@@ -1265,7 +1266,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                       setPortalNotifications(prev => prev.map(n => ({ ...n, read: true })));
                     } catch(e) { console.error(e); }
                   }}
-                  className="text-xs text-primary font-semibold hover:underline"
+                  className="text-xs text-primary font-semibold hover:underline text-left sm:text-right"
                 >
                   Mark all as read
                 </button>
@@ -1295,13 +1296,13 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                       } catch(e) { console.error(e); }
                     }
                   }}
-                  className={`bg-card rounded-xl border p-5 flex items-start gap-3 cursor-pointer transition-colors ${!n.read ? 'border-primary/30 bg-primary/5' : 'border-border'}`}
+                  className={`bg-card rounded-xl border p-4 sm:p-5 flex items-start gap-3 cursor-pointer transition-colors ${!n.read ? 'border-primary/30 bg-primary/5' : 'border-border'}`}
                 >
                   <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${!n.read ? 'bg-primary' : 'bg-transparent'}`} />
                   <Bell size={18} className={`mt-0.5 flex-shrink-0 ${!n.read ? 'text-primary' : 'text-muted-foreground'}`} />
                   <div className="min-w-0 flex-1">
-                    {n.title && <p className="text-sm font-semibold text-foreground">{n.title}</p>}
-                    <p className="text-sm text-foreground mt-0.5">{n.message || n.text}</p>
+                    {n.title && <p className="text-sm font-semibold text-foreground break-words">{n.title}</p>}
+                    <p className="text-sm text-foreground mt-0.5 break-words">{n.message || n.text}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {n.created_at ? new Date(n.created_at).toLocaleString() : n.time}
                     </p>
@@ -1314,13 +1315,13 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
         {activeTab === "timetable" && (
           <div className="space-y-4">
-            <div className="bg-card rounded-xl border border-border p-5 flex items-center justify-between gap-3">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-1">Class Timetable</h3>
                 <p className="text-sm text-muted-foreground">Weekly schedule for your enrolled courses.</p>
               </div>
               {studentSchedule.length > 0 && (
-                <Button variant="outline" onClick={downloadClassTimetable} className="gap-2 flex-shrink-0">
+                <Button variant="outline" onClick={downloadClassTimetable} className="gap-2 flex-shrink-0 w-full sm:w-auto">
                   <FileText size={14} /> Download
                 </Button>
               )}
@@ -1340,16 +1341,16 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                         <h4 className="font-heading text-sm font-bold text-primary">{day}</h4>
                       </div>
                       {dayClasses.map((s: any) => (
-                        <div key={s.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border last:border-0">
-                          <div>
-                            <p className="font-medium text-foreground">{s.course_title || s.course}</p>
+                        <div key={s.id} className="p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border last:border-0">
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground break-words">{s.course_title || s.course}</p>
                             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
                               <Clock size={12} /> {s.start_time} — {s.end_time}
                             </p>
-                            {s.teacher_name && <p className="text-xs text-muted-foreground mt-0.5">👤 {s.teacher_name}</p>}
-                            {s.notes && <p className="text-xs text-muted-foreground mt-0.5">{s.notes}</p>}
+                            {s.teacher_name && <p className="text-xs text-muted-foreground mt-0.5 break-words">👤 {s.teacher_name}</p>}
+                            {s.notes && <p className="text-xs text-muted-foreground mt-0.5 break-words">{s.notes}</p>}
                           </div>
-                          <div className="flex flex-col items-end gap-1">
+                          <div className="flex flex-col items-start sm:items-end gap-1">
                             <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">{s.venue}</span>
                             {s.platform && <span className="text-xs text-muted-foreground">{s.platform}</span>}
                             {s.meeting_link && (
@@ -1368,8 +1369,8 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
         )}
 
         {activeTab === "security" && (
-          <div className="space-y-4 max-w-2xl">
-            <div className="bg-card rounded-xl border border-border p-5">
+          <div className="space-y-4 max-w-2xl mx-auto w-full">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-5">
               <div className="flex items-start gap-3">
                 <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                   <KeyRound size={22} />
@@ -1381,7 +1382,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
               </div>
             </div>
 
-            <div className="bg-card rounded-xl border border-border p-5 space-y-4">
+            <div className="bg-card rounded-xl border border-border p-4 sm:p-5 space-y-4">
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1.5">Current Password</label>
                 <div className="relative">

@@ -81,7 +81,7 @@ const PaymentSuccess = () => {
               </>
             )}
             <div className="flex flex-col gap-3 w-full">
-              <Link to="/student/login">
+              <Link to="/student">
                 <Button className="w-full">Go to Student Portal</Button>
               </Link>
               <Link to="/">
