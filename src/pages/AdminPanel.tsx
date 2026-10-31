@@ -396,6 +396,22 @@ const AdminPanel = () => {
   const [assignmentFilter, setAssignmentFilter] = useState<"all" | "assigned" | "unassigned">("all");
   const [assessmentInnerTab, setAssessmentInnerTab] = useState<"assessments" | "exams" | "timetable">("assessments");
   const [myCourseInnerTab, setMyCourseInnerTab] = useState<"courses" | "results" | "schedule">("courses");
+  const [openMyCourseId, setOpenMyCourseId] = useState<string | null>(null);
+  const [courseStudentsMap, setCourseStudentsMap] = useState<Record<string, any>>({});
+  const toggleMyCourse = async (courseId: string) => {
+    if (openMyCourseId === courseId) { setOpenMyCourseId(null); return; }
+    setOpenMyCourseId(courseId);
+    setCourseStudentsMap((prev) => ({ ...prev, [courseId]: "loading" }));
+    try {
+      const sess = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+      const res = await apiFetch(apiUrl('/api/admin/students/by-course-id/' + courseId), { headers: { Authorization: 'Bearer ' + sess?.token } });
+      if (!res.ok) throw new Error('failed');
+      const json = await res.json();
+      setCourseStudentsMap((prev) => ({ ...prev, [courseId]: json.data || [] }));
+    } catch {
+      setCourseStudentsMap((prev) => ({ ...prev, [courseId]: "error" }));
+    }
+  };
   const [coursesInnerTab, setCoursesInnerTab] = useState<"courses" | "results" | "schedule">("courses");
   const [exams, setExams] = useState<any[]>([]);
   const [examsPage, setExamsPage] = useState(1);
@@ -442,7 +458,7 @@ const AdminPanel = () => {
         apiFetch(apiUrl('/api/admin/admins?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
         apiFetch(apiUrl('/api/admin/payments?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
         apiFetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/students?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
+        apiFetch(apiUrl('/api/admin/students?limit=2000'), { headers }).then(r => r.ok ? r.json() : null),
         apiFetch(apiUrl('/api/admin/courses?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
       ]);
       if (gradesRes?.data) setGrades(gradesRes.data);
@@ -541,7 +557,7 @@ const AdminPanel = () => {
   apiFetch(apiUrl('/api/admin/admins?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/payments?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : {}),
-  apiFetch(apiUrl('/api/admin/students?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
+  apiFetch(apiUrl('/api/admin/students?limit=2000'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/courses?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/settings'), { headers }).then(r => r.ok ? r.json() : {}),
   apiFetch(apiUrl('/api/admin/assessments'), { headers }).then(r => r.ok ? r.json() : { data: [] }),
@@ -1105,7 +1121,7 @@ const exportData = async (type: string) => {
 
     try {
       // Look up student by index number
-      const studentRes = await apiFetch(apiUrl('/api/admin/students?limit=200'), { headers });
+      const studentRes = await apiFetch(apiUrl('/api/admin/students?limit=2000'), { headers });
       const studentData = await studentRes.json();
       const studentList = studentData.data || studentData;
       const student = studentList.find((s: any) => s.index_number === newGrade.student.trim());
@@ -1285,6 +1301,7 @@ const exportData = async (type: string) => {
       title: found?.title || courseId,
       semester: found?.semester || "—",
       status: found?.status || "Assigned",
+      enrolled: (found as any)?.enrolled ?? 0,
     };
   });
   const formatExamDateList = (value: unknown) => {
@@ -2124,16 +2141,45 @@ const exportData = async (type: string) => {
                       {currentAssignedCourses.length === 0 && (
                         <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">No courses assigned yet.</td></tr>
                       )}
-                      {currentAssignedCourses.map((course: any) => (
-                        <tr key={course.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                          <td className="p-4 font-medium text-foreground">{course.title}</td>
-                          <td className="p-4 text-muted-foreground">{course.semester}</td>
-                          <td className="p-4 text-muted-foreground">{course.enrolled || 0} enrolled</td>
-                          <td className="p-4">
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{course.status}</span>
-                          </td>
-                        </tr>
-                      ))}
+                      {currentAssignedCourses.map((course: any) => {
+                        const list = courseStudentsMap[course.id];
+                        const isOpen = openMyCourseId === course.id;
+                        return (
+                          <React.Fragment key={course.id}>
+                            <tr onClick={() => toggleMyCourse(course.id)} className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer">
+                              <td className="p-4 font-medium text-foreground">{course.title}</td>
+                              <td className="p-4 text-muted-foreground">{course.semester}</td>
+                              <td className="p-4 text-muted-foreground">{Array.isArray(list) ? list.length : (course.enrolled || 0)} enrolled {isOpen ? "▲" : "▼"}</td>
+                              <td className="p-4">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{course.status}</span>
+                              </td>
+                            </tr>
+                            {isOpen && (
+                              <tr className="border-b border-border bg-muted/20">
+                                <td colSpan={4} className="p-4">
+                                  {list === "loading" || list === undefined ? (
+                                    <p className="text-xs text-muted-foreground">Loading students...</p>
+                                  ) : list === "error" ? (
+                                    <p className="text-xs text-destructive">Could not load students. Tap the course to try again.</p>
+                                  ) : list.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground">No students enrolled yet.</p>
+                                  ) : (
+                                    <ul className="space-y-1 max-h-72 overflow-y-auto pr-2">
+                                      {list.map((st: any, i: number) => (
+                                        <li key={st.id} className="text-sm text-foreground flex gap-2">
+                                          <span className="text-muted-foreground w-8 flex-shrink-0">{i + 1}.</span>
+                                          <span className="font-medium">{st.username || st.email}</span>
+                                          <span className="text-muted-foreground">{st.index_number}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
