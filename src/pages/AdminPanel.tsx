@@ -454,12 +454,12 @@ const AdminPanel = () => {
       if (!token) return;
       const headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
       const [gradesRes, adminsRes, paymentsRes, statsRes, studentsRes, coursesRes] = await Promise.all([
-        apiFetch(apiUrl('/api/admin/grades?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/admins?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/payments?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
+        apiFetch(apiUrl('/api/admin/grades?limit=2000'), { headers }).then(r => r.ok ? r.json() : null),
+        apiFetch(apiUrl('/api/admin/admins?limit=2000'), { headers }).then(r => r.ok ? r.json() : null),
+        apiFetch(apiUrl('/api/admin/payments?limit=2000'), { headers }).then(r => r.ok ? r.json() : null),
         apiFetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : null),
         apiFetch(apiUrl('/api/admin/students?limit=2000'), { headers }).then(r => r.ok ? r.json() : null),
-        apiFetch(apiUrl('/api/admin/courses?limit=200'), { headers }).then(r => r.ok ? r.json() : null),
+        apiFetch(apiUrl('/api/admin/courses?limit=2000'), { headers }).then(r => r.ok ? r.json() : null),
       ]);
       if (gradesRes?.data) setGrades(gradesRes.data);
       else if (Array.isArray(gradesRes)) setGrades(gradesRes);
@@ -513,7 +513,7 @@ const AdminPanel = () => {
         }).then(r => r.ok ? r.json() : null).then(verified => {
           if (verified) {
             // Get assigned courses from admin accounts list
-            apiFetch(apiUrl('/api/admin/admins?limit=200'), {
+            apiFetch(apiUrl('/api/admin/admins?limit=2000'), {
               headers: { Authorization: 'Bearer ' + s.token }
             }).then(r => r.ok ? r.json() : null).then(adminsRes => {
               const adminsList = adminsRes?.data || adminsRes || [];
@@ -553,12 +553,12 @@ const AdminPanel = () => {
           if (token) headers['Authorization'] = 'Bearer ' + token;
 
    const [gradesRes, adminsRes, paymentsRes, statsRes, studentsRes, coursesRes, settingsRes, assessmentsRes] = await Promise.all([
-  apiFetch(apiUrl('/api/admin/grades?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/admins?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/payments?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
+  apiFetch(apiUrl('/api/admin/grades?limit=2000'), { headers }).then(r => r.ok ? r.json() : []),
+  apiFetch(apiUrl('/api/admin/admins?limit=2000'), { headers }).then(r => r.ok ? r.json() : []),
+  apiFetch(apiUrl('/api/admin/payments?limit=2000'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/stats'), { headers }).then(r => r.ok ? r.json() : {}),
   apiFetch(apiUrl('/api/admin/students?limit=2000'), { headers }).then(r => r.ok ? r.json() : []),
-  apiFetch(apiUrl('/api/admin/courses?limit=200'), { headers }).then(r => r.ok ? r.json() : []),
+  apiFetch(apiUrl('/api/admin/courses?limit=2000'), { headers }).then(r => r.ok ? r.json() : []),
   apiFetch(apiUrl('/api/admin/settings'), { headers }).then(r => r.ok ? r.json() : {}),
   apiFetch(apiUrl('/api/admin/assessments'), { headers }).then(r => r.ok ? r.json() : { data: [] }),
 ]);
@@ -745,7 +745,7 @@ if (studentsRes?.data) {
     };
 
     loadApplications();
-    const interval = setInterval(loadApplications, 5000);
+    const interval = setInterval(loadApplications, 30000);
     return () => clearInterval(interval);
   }, [isLoggedIn, appsPage, appsLimit]);
 
@@ -903,16 +903,18 @@ if (studentsRes?.data) {
 };
 
 const exportData = async (type: string) => {
-  const s = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
-  const token = s?.token;
-  const res = await fetch(`/api/admin/export?type=${type}`, { headers: token ? { Authorization: 'Bearer ' + token } : {} });
-  if (res.ok) {
+  try {
+    const sess = JSON.parse(localStorage.getItem('ami_admin_session') || '{}');
+    const token = sess?.token;
+    const res = await apiFetch(apiUrl(`/api/admin/export?type=${type}`), { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+    if (!res.ok) { toast.error('Export failed'); return; }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `${type}.csv`; a.click();
+    a.href = url; a.download = `${type}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
-  } else toast.error('Export failed');
+  } catch { toast.error('Export failed'); }
 };
   const approveAdminBackend = async (userId: any) => {
     try {
@@ -1131,7 +1133,7 @@ const exportData = async (type: string) => {
         return;
       }
 
-      const res = await apiFetch(apiUrl('/api/admin/grades?limit=200'), {
+      const res = await apiFetch(apiUrl('/api/admin/grades?limit=2000'), {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -1285,10 +1287,13 @@ const exportData = async (type: string) => {
   });
 
   // For sub-admins: only show students enrolled in their assigned courses
+  const assignedTitles = currentAssignedCourseIds
+    .map((id) => courses.find((c) => c.id === id)?.title)
+    .filter(Boolean) as string[];
   const visibleStudents = isSuperAdmin
     ? filteredStudents
     : filteredStudents.filter((s: any) =>
-        s.enrolledCourses?.some((c: string) => currentAssignedCourseIds.includes(c))
+        s.enrolledCourses?.some((c: string) => assignedTitles.includes(c) || currentAssignedCourseIds.includes(c))
       );
   const studentsTotalPages = Math.max(1, Math.ceil(visibleStudents.length / studentsLimit));
   const paginatedStudents = visibleStudents.slice((studentsPage - 1) * studentsLimit, studentsPage * studentsLimit);
@@ -1714,7 +1719,10 @@ const exportData = async (type: string) => {
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`${inputClass} pl-10`} placeholder="Search students..." />
                 </div>
-{isSuperAdmin && <Button variant="gold" onClick={() => setShowAddStudent(true)} className="gap-2"><Plus size={16} /> Add Student</Button>}
+<div className="flex gap-2">
+                  <Button variant="outline" onClick={() => exportData('students')} className="gap-2"><Download size={16} /> Download</Button>
+                  {isSuperAdmin && <Button variant="gold" onClick={() => setShowAddStudent(true)} className="gap-2"><Plus size={16} /> Add Student</Button>}
+                </div>
               </div>
               {editingStudent && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !editStudentSaving && setEditingStudent(null)}>
@@ -3515,7 +3523,7 @@ const exportData = async (type: string) => {
                   <div className="bg-card rounded-xl border border-border p-6">
                     <h3 className="font-heading font-semibold text-foreground mb-3">Data Management</h3>
                     <p className="text-sm text-muted-foreground mb-4">Export or manage stored data.</p>
-                    <Button variant="outline" className="gap-2"><Download size={16} /> Export Data</Button>
+                    <Button variant="outline" className="gap-2" onClick={() => exportData('students')}><Download size={16} /> Export Students (CSV)</Button>
                   </div>
                 </>
               )}
