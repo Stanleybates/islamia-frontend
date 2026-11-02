@@ -7,13 +7,11 @@ import PaymentSection from "@/components/PaymentSection";
 import AcademicPoliciesSection from "@/components/AcademicPoliciesSection";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, MessageCircle, X, Clock } from "lucide-react";
+import { GraduationCap, X, Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 import AdmissionFormDialog from "@/components/AdmissionFormDialog";
 import { apiUrl } from "@/lib/apiClient";
 import useDocumentTitle from "@/hooks/useDocumentTitle";
-
-const WHATSAPP_NUMBER = "233550545403";
 
 const Index = () => {
   useDocumentTitle("Allahul Musta'an Institute - Admissions & Student Portal");
@@ -168,15 +166,6 @@ const Index = () => {
               <GraduationCap size={20} />
               Apply Now
             </Button>
-            <a
-              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Assalamu Alaikum, I would like to inquire about admission to Allāhul Musta'ān Institute.")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 bg-green-600 text-white px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-green-700 transition-colors shadow-md"
-            >
-              <MessageCircle size={20} />
-              Chat on WhatsApp
-            </a>
           </div>
         </div>
       </section>

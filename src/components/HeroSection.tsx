@@ -4,9 +4,10 @@ import { BookOpen, GraduationCap, Star, Globe, Award } from "lucide-react";
 import islamic1 from "@/assets/islamic-1.jpg";
 import islamic2 from "@/assets/islamic-2.jpg";
 import islamic3 from "@/assets/islamic-3.jpg";
+import islamic4 from "@/assets/islamic-4.jpg";
 import AdmissionFormDialog from "./AdmissionFormDialog";
 
-const images = [islamic1, islamic2, islamic3];
+const images = [islamic1, islamic2, islamic3, islamic4];
 
 const HeroSection = () => {
   const [currentImage, setCurrentImage] = useState(0);
@@ -35,7 +36,7 @@ const HeroSection = () => {
             }}
           />
         ))}
-        <div className="absolute inset-0 bg-gradient-to-b from-foreground/70 via-foreground/60 to-foreground/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(170_35%_12%/0.7)] via-[hsl(170_35%_12%/0.6)] to-[hsl(170_35%_12%/0.8)]" />
 
         <div className="container-max relative z-10 text-center max-w-4xl mx-auto px-4 pt-32 pb-16">
           <div className="animate-fade-in">

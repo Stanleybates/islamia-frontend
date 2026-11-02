@@ -3,10 +3,11 @@ import apiClient from "@/lib/apiClient";
 import { apiUrl, apiFetch } from '@/lib/apiClient';
 import { getCsrfToken } from '@/lib/csrf';
 import { Link } from "react-router-dom";
-import { BookOpen, GraduationCap, Bell, User, LogOut, Home, Clock, Award, Eye, EyeOff, KeyRound, Phone, ClipboardList, FileText, CheckCircle2, CreditCard } from "lucide-react";
+import { BookOpen, GraduationCap, Bell, User, LogOut, Home, Clock, Award, Eye, EyeOff, KeyRound, Phone, ClipboardList, FileText, CheckCircle2, CreditCard, Menu, X } from "lucide-react";
 import { jsPDF } from "jspdf";
 import useSessionTimeout from "@/hooks/useSessionTimeout";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
 import logo from "@/assets/logo.png";
 import studentBg from "@/assets/student-learning-bg.jpg";
@@ -52,6 +53,7 @@ const StudentPortal = () => {
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState<"dashboard" | "courses" | "fees" | "assessments" | "results" | "notifications" | "timetable" | "security">("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showSecurityPassword, setShowSecurityPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -62,6 +64,9 @@ const StudentPortal = () => {
   const [studentResults, setStudentResults] = useState<any[]>([]);
   const [studentCourses, setStudentCourses] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [seenItems, setSeenItems] = useState<Record<string, string> | null>(null);
+  const [viewingItem, setViewingItem] = useState<{ kind: ViewKind; item: any; status: ItemStatus } | null>(null);
   const [portalNotifications, setPortalNotifications] = useState<any[]>([]);
   const [studentAssessments, setStudentAssessments] = useState<any[]>([]);
   const [studentExams, setStudentExams] = useState<any[]>([]);
@@ -148,6 +153,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
           teacherEmail: c.teacher_email || null,
         })));
       }
+      setDataLoaded(true);
     } catch (e) { console.error(e); }
     setLoadingData(false);
   };
@@ -350,10 +356,70 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
     localStorage.removeItem("ami_student_session");
     sessionStorage.removeItem('ami_student_active');
     setIsLoggedIn(false);
+    setDataLoaded(false);
+    setSeenItems(null);
+    setViewingItem(null);
     setAuthForm({ indexNumber: "", password: "", phone: "" });
     setAuthErrors([]);
     toast.info("Logged out successfully");
   };
+
+  const trackedItems: [TrackedKind, any[]][] = [
+    ["assessment", studentAssessments.filter((a) => a.type !== "Exam")],
+    ["result", studentResults],
+    ["exam", studentExams],
+    ["course", studentCourses],
+    ["schedule", studentSchedule],
+  ];
+
+  // Load what this student has already viewed. On a device with no record yet,
+  // everything current counts as viewed so only later changes get flagged.
+  useEffect(() => {
+    if (!dataLoaded || seenItems) return;
+    const stored = readSeenItems();
+    if (stored) {
+      setSeenItems(stored);
+      return;
+    }
+    const baseline: Record<string, string> = {};
+    trackedItems.forEach(([kind, items]) => items.forEach((item) => { baseline[itemKey(kind, item)] = itemFingerprint(kind, item); }));
+    writeSeenItems(baseline);
+    setSeenItems(baseline);
+  }, [dataLoaded]);
+
+  // Pick up newly posted or changed items whenever these tabs are opened
+  useEffect(() => {
+    if (isLoggedIn && ["courses", "assessments", "results", "notifications", "timetable"].includes(activeTab)) loadStudentData();
+  }, [activeTab]);
+
+  const itemStatus = (kind: TrackedKind, item: any): ItemStatus => {
+    if (!seenItems) return null;
+    const key = itemKey(kind, item);
+    if (!(key in seenItems)) return "New";
+    return seenItems[key] === itemFingerprint(kind, item) ? null : "Updated";
+  };
+
+  const openItem = (kind: ViewKind, item: any) => {
+    if (kind === "notification") {
+      setViewingItem({ kind, item, status: null });
+      return;
+    }
+    setViewingItem({ kind, item, status: itemStatus(kind, item) });
+    if (seenItems) {
+      const next = { ...seenItems, [itemKey(kind, item)]: itemFingerprint(kind, item) };
+      setSeenItems(next);
+      writeSeenItems(next);
+    }
+  };
+
+  const updateCount = (kind: TrackedKind) => trackedItems.find(([k]) => k === kind)![1].filter((item) => itemStatus(kind, item)).length;
+  const assessmentUpdates = updateCount("assessment") + updateCount("exam");
+  const resultUpdates = updateCount("result");
+  const courseUpdates = updateCount("course");
+  const scheduleUpdates = updateCount("schedule");
+  const viewingLink = viewingItem
+    ? getItemLink(viewingItem.kind, viewingItem.item, examCountdowns[viewingItem.item.id]?.status === "active")
+    : null;
 
 
   // Exam countdown timer
@@ -582,7 +648,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
         {/* Background image */}
         <div className="absolute inset-0 z-0">
           <img src={studentBg} alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/80 via-primary/60 to-foreground/70" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[hsl(170_55%_22%/0.8)] via-[hsl(170_55%_22%/0.6)] to-[hsl(170_35%_12%/0.7)]" />
         </div>
 
         <div className="relative z-10 w-full max-w-md">
@@ -712,22 +778,28 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-50">
-        <div className="container-max px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+        <div className="container-max px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 h-16">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden relative p-2 -ml-2 text-foreground hover:text-primary flex-shrink-0" aria-label="Open menu">
+              <Menu size={20} />
+              {(portalNotifications.some((n: any) => !n.read) || assessmentUpdates + resultUpdates + courseUpdates + scheduleUpdates > 0) && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
+              )}
+            </button>
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
               <img src={logo} alt="Logo" className="h-7 w-auto" />
             </div>
-            <div>
-              <p className="font-heading text-sm font-bold text-primary">Student Portal</p>
-              <p className="text-xs text-muted-foreground">Allāhul Musta'ān Institute</p>
+            <div className="min-w-0">
+              <p className="font-heading text-sm font-bold text-primary truncate">Student Portal</p>
+              <p className="text-xs text-muted-foreground truncate">Allāhul Musta'ān Institute</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0">
             <Link to="/" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
               <Home size={16} />
               <span className="hidden sm:inline">Home</span>
             </Link>
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                 <User size={18} />
               </div>
@@ -742,9 +814,12 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
       <div className="flex min-h-[calc(100vh-64px)]">
         {/* Sidebar */}
-        <aside className="w-56 bg-card border-r border-border overflow-y-auto">
+        <aside className={`fixed inset-y-0 left-0 z-[60] w-64 max-w-[85vw] bg-card border-r border-border overflow-y-auto transform transition-transform lg:static lg:z-auto lg:w-56 lg:flex-shrink-0 lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground" aria-label="Close menu">
+            <X size={20} />
+          </button>
           <div className="p-6">
-            <div className="mb-8">
+            <div className="mb-8 pr-8 lg:pr-0">
               <h2 className="font-heading text-sm font-semibold text-foreground mb-2">As-salāmu ʿalaykum</h2>
               <p className="text-lg font-bold text-primary">{session.name || "Student"}</p>
               <p className="text-xs text-muted-foreground mt-1">{session.index_number || session.indexNumber || session.regNumber}</p>
@@ -753,17 +828,17 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
             <nav className="space-y-1">
               {[
                 { key: "dashboard", label: "Dashboard", icon: Home },
-                { key: "courses", label: "My Courses", icon: BookOpen },
+                { key: "courses", label: "My Courses", icon: BookOpen, badge: courseUpdates },
                 { key: "fees", label: "Fees", icon: CreditCard },
-                { key: "assessments", label: "Assessments", icon: ClipboardList },
-                { key: "results", label: "Results", icon: Award },
+                { key: "assessments", label: "Assessments", icon: ClipboardList, badge: assessmentUpdates },
+                { key: "results", label: "Results", icon: Award, badge: resultUpdates },
                 { key: "notifications", label: "Notifications", icon: Bell, badge: portalNotifications.filter((n: any) => !n.read).length },
-                { key: "timetable", label: "Timetable", icon: Clock },
+                { key: "timetable", label: "Timetable", icon: Clock, badge: scheduleUpdates },
                 { key: "security", label: "Change Password", icon: KeyRound },
               ].map((item) => (
                 <button
                   key={item.key}
-                  onClick={() => setActiveTab(item.key as any)}
+                  onClick={() => { setActiveTab(item.key as any); setSidebarOpen(false); }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all text-left ${
                     activeTab === item.key
                       ? "bg-primary/10 text-primary border-l-2 border-primary"
@@ -782,9 +857,10 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
             </nav>
           </div>
         </aside>
+        {sidebarOpen && <div className="fixed inset-0 bg-black/40 z-[55] lg:hidden" onClick={() => setSidebarOpen(false)} />}
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 min-w-0 overflow-y-auto">
           <div className="container-max px-4 sm:px-6 lg:px-8 py-6">
 
         {activeTab === "dashboard" && (
@@ -850,25 +926,29 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
               </div>
             )}
             {studentCourses.map((course: any) => (
-              <div key={course.id} className="bg-card rounded-xl border border-border p-5 flex items-center justify-between gap-4">
+              <div key={course.id} className="bg-card rounded-xl border border-border p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                     <BookOpen size={18} />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="font-heading text-base font-semibold text-foreground truncate">{course.title}</h4>
+                    <h4 className="font-heading text-base font-semibold text-foreground sm:truncate">{course.title}</h4>
                     <p className="text-sm text-muted-foreground mt-0.5">{course.semester}</p>
+                    {itemStatus("course", course) && <span className="inline-block mt-1"><ItemStatusBadge status={itemStatus("course", course)} /></span>}
                     {course.teacherName && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5 break-words">
                         👤 {course.teacherName}
                         {course.teacherEmail && <span> · {course.teacherEmail}</span>}
                       </p>
                     )}
                   </div>
                 </div>
+                <Button variant="outline" className="flex-shrink-0 w-full sm:w-auto sm:ml-auto gap-1 text-sm px-4 py-2" onClick={() => openItem("course", course)}>
+                  <Eye size={14} /> View
+                </Button>
                 <Button
                   variant={course.enrolled ? "outline" : "gold"}
-                  className="flex-shrink-0 text-sm px-4 py-2"
+                  className="flex-shrink-0 w-full sm:w-auto text-sm px-4 py-2"
                   onClick={async () => {
                     const session = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
                     const token = session?.token;
@@ -942,14 +1022,14 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                 <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
                   <ClipboardList size={22} />
                 </div>
-                <div>
-                  <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h3 className="font-heading text-lg font-semibold text-foreground">Your Assessments</h3>
                       <p className="text-sm text-muted-foreground mt-0.5">Assessments and results posted by your staff.</p>
                     </div>
                     {studentExams.length > 0 && (
-                      <Button variant="outline" onClick={downloadExamTimetable} className="gap-2 flex-shrink-0">
+                      <Button variant="outline" onClick={downloadExamTimetable} className="gap-2 self-start sm:self-auto flex-shrink-0 h-auto whitespace-normal">
                         <FileText size={14} /> Download Exam Schedule
                       </Button>
                     )}
@@ -1009,7 +1089,8 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                               {exam.start_time ? new Date(exam.start_time).toLocaleString() : ''} — {exam.end_time ? new Date(exam.end_time).toLocaleString() : ''}
                             </p>
                           </div>
-                          <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                          <div className="flex flex-col items-start sm:items-end gap-2 flex-shrink-0">
+                            <ItemStatusBadge status={itemStatus("exam", exam)} />
                             {isClosed && (
                               <span className="text-xs font-semibold px-3 py-1 rounded-full bg-destructive/10 text-destructive">Exam Closed</span>
                             )}
@@ -1030,11 +1111,14 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                             {isUpcoming && cd && (
                               <>
                                 <span className="text-xs font-semibold px-3 py-1 rounded-full bg-secondary/10 text-secondary">Upcoming</span>
-                                <p className="text-xs text-muted-foreground text-right">
+                                <p className="text-xs text-muted-foreground sm:text-right">
                                   Starts in: {cd.days}d {cd.hours}h {cd.minutes}m {cd.seconds}s
                                 </p>
                               </>
                             )}
+                            <Button variant="outline" size="sm" className="gap-1" onClick={() => openItem("exam", exam)}>
+                              <Eye size={14} /> View
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -1132,6 +1216,11 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
             )}
 
             <div className="space-y-3">
+              {studentAssessments.filter((a) => a.type !== "Exam").length === 0 && (
+                <div className="bg-card rounded-xl border border-dashed border-border p-6 text-center text-muted-foreground">
+                  No assessments posted yet.
+                </div>
+              )}
               {studentAssessments.filter((a) => a.type !== "Exam").map((a) => (
                 <div key={a.id || a.title} className="bg-card rounded-xl border border-border p-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1140,16 +1229,20 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                         {a.type === "Quiz" ? <CheckCircle2 size={18} /> : <FileText size={18} />}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-foreground truncate">{a.title}</p>
+                        <p className="font-medium text-foreground sm:truncate">{a.title}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">{a.course} · {a.type} · Weight {a.weight}</p>
                         <p className="text-xs text-muted-foreground mt-0.5 inline-flex items-center gap-1"><Clock size={12} /> Posted {a.posted}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                      <ItemStatusBadge status={itemStatus("assessment", a)} />
                       <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
                         a.status === "Posted" ? "bg-primary/10 text-primary" :
                         "bg-secondary/10 text-secondary"
                       }`}>{a.status}</span>
+                      <Button variant="outline" size="sm" className="gap-1" onClick={() => openItem("assessment", a)}>
+                        <Eye size={14} /> View
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -1215,20 +1308,29 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-border bg-muted/50">
-                              <th className="text-left p-4 font-semibold text-foreground">Course</th>
-                              <th className="text-center p-4 font-semibold text-foreground">Midterm</th>
-                              <th className="text-center p-4 font-semibold text-foreground">Final</th>
-                              <th className="text-center p-4 font-semibold text-foreground">Grade</th>
+                              <th className="text-left p-2 sm:p-4 font-semibold text-foreground">Course</th>
+                              <th className="text-center p-2 sm:p-4 font-semibold text-foreground">Midterm</th>
+                              <th className="text-center p-2 sm:p-4 font-semibold text-foreground">Final</th>
+                              <th className="text-center p-2 sm:p-4 font-semibold text-foreground">Grade</th>
+                              <th className="p-2 sm:p-4" aria-label="View" />
                             </tr>
                           </thead>
                           <tbody>
                             {studentResults.filter((r: any) => (r.semester || 'Current Semester') === sem).map((r: any) => (
                               <tr key={`${r.course}-${r.grade}-${r.midterm}`} className="border-b border-border last:border-0">
-                                <td className="p-4 text-foreground">{r.course}</td>
-                                <td className="p-4 text-center text-muted-foreground">{r.midterm}</td>
-                                <td className="p-4 text-center text-muted-foreground">{r.final}</td>
-                                <td className="p-4 text-center">
+                                <td className="p-2 sm:p-4 text-foreground">
+                                  <span className="block">{r.course}</span>
+                                  {itemStatus("result", r) && <span className="inline-block mt-1"><ItemStatusBadge status={itemStatus("result", r)} /></span>}
+                                </td>
+                                <td className="p-2 sm:p-4 text-center text-muted-foreground">{r.midterm}</td>
+                                <td className="p-2 sm:p-4 text-center text-muted-foreground">{r.final}</td>
+                                <td className="p-2 sm:p-4 text-center">
                                   <span className="bg-primary/10 text-primary font-bold px-3 py-1 rounded-full text-xs">{r.grade}</span>
+                                </td>
+                                <td className="p-2 sm:p-4 text-right">
+                                  <Button variant="outline" size="sm" className="gap-1 px-2 sm:px-3" aria-label={`View result for ${r.course}`} onClick={() => openItem("result", r)}>
+                                    <Eye size={14} /> <span className="hidden sm:inline">View</span>
+                                  </Button>
                                 </td>
                               </tr>
                             ))}
@@ -1306,6 +1408,9 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                       {n.created_at ? new Date(n.created_at).toLocaleString() : n.time}
                     </p>
                   </div>
+                  <Button variant="outline" size="sm" className="gap-1 flex-shrink-0" onClick={() => openItem("notification", n)}>
+                    <Eye size={14} /> View
+                  </Button>
                 </div>
               ))
             )}
@@ -1314,13 +1419,13 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
         {activeTab === "timetable" && (
           <div className="space-y-4">
-            <div className="bg-card rounded-xl border border-border p-5 flex items-center justify-between gap-3">
+            <div className="bg-card rounded-xl border border-border p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="font-heading text-lg font-semibold text-foreground mb-1">Class Timetable</h3>
                 <p className="text-sm text-muted-foreground">Weekly schedule for your enrolled courses.</p>
               </div>
               {studentSchedule.length > 0 && (
-                <Button variant="outline" onClick={downloadClassTimetable} className="gap-2 flex-shrink-0">
+                <Button variant="outline" onClick={downloadClassTimetable} className="gap-2 self-start sm:self-auto flex-shrink-0">
                   <FileText size={14} /> Download
                 </Button>
               )}
@@ -1349,13 +1454,17 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                             {s.teacher_name && <p className="text-xs text-muted-foreground mt-0.5">👤 {s.teacher_name}</p>}
                             {s.notes && <p className="text-xs text-muted-foreground mt-0.5">{s.notes}</p>}
                           </div>
-                          <div className="flex flex-col items-end gap-1">
+                          <div className="flex flex-col items-start sm:items-end gap-1 flex-shrink-0">
+                            <ItemStatusBadge status={itemStatus("schedule", s)} />
                             <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">{s.venue}</span>
                             {s.platform && <span className="text-xs text-muted-foreground">{s.platform}</span>}
                             {s.meeting_link && (
                               <a href={s.meeting_link} target="_blank" rel="noopener noreferrer"
                                 className="text-xs text-primary underline">Join Class</a>
                             )}
+                            <Button variant="outline" size="sm" className="gap-1 mt-1" onClick={() => openItem("schedule", s)}>
+                              <Eye size={14} /> View
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -1434,6 +1543,51 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
           </div>
         </main>
       </div>
+
+      <Dialog open={!!viewingItem} onOpenChange={(open) => { if (!open) setViewingItem(null); }}>
+        <DialogContent className="w-[calc(100%-2rem)] max-h-[85vh] overflow-y-auto rounded-xl bg-card">
+          {viewingItem && (
+            <>
+              <DialogHeader className="text-left pr-6">
+                <DialogTitle className="font-heading text-lg leading-snug">
+                  {getItemTitle(viewingItem.kind, viewingItem.item)}
+                </DialogTitle>
+                <DialogDescription className="capitalize">
+                  {VIEW_LABELS[viewingItem.kind]} details
+                </DialogDescription>
+              </DialogHeader>
+              {viewingItem.status && (
+                <p className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-foreground">
+                  {viewingItem.status === "New"
+                    ? `This ${VIEW_LABELS[viewingItem.kind]} is new since your last visit.`
+                    : `This ${VIEW_LABELS[viewingItem.kind]} has been updated since you last viewed it.`}
+                </p>
+              )}
+              {viewingItem.kind === "notification" && (
+                <p className="text-sm text-foreground whitespace-pre-wrap break-words">{viewingItem.item.message || viewingItem.item.text}</p>
+              )}
+              <dl className="divide-y divide-border text-sm">
+                {getDetailRows(viewingItem.kind, viewingItem.item).map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-4 py-2.5">
+                    <dt className="text-muted-foreground flex-shrink-0">{label}</dt>
+                    <dd className="font-medium text-foreground text-right min-w-0 break-words">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              {viewingLink && (
+                <a
+                  href={viewingLink.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  {viewingLink.label}
+                </a>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -1463,6 +1617,137 @@ function escapeHtml(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+type ItemStatus = "New" | "Updated" | null;
+type TrackedKind = "assessment" | "result" | "exam" | "course" | "schedule";
+type ViewKind = TrackedKind | "notification";
+
+const VIEW_LABELS: Record<ViewKind, string> = {
+  assessment: "assessment",
+  result: "result",
+  exam: "exam",
+  course: "course",
+  schedule: "class",
+  notification: "notification",
+};
+
+function seenItemsStorageKey() {
+  const session = JSON.parse(localStorage.getItem("ami_student_session") || "{}");
+  return `ami_seen_items_${session.index_number || session.indexNumber || session.regNumber || "student"}`;
+}
+
+function readSeenItems(): Record<string, string> | null {
+  try {
+    const stored = localStorage.getItem(seenItemsStorageKey());
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSeenItems(items: Record<string, string>) {
+  try {
+    localStorage.setItem(seenItemsStorageKey(), JSON.stringify(items));
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function itemKey(kind: TrackedKind, item: any) {
+  if (kind === "result") return `result:${item.semester}|${item.course}`;
+  return `${kind}:${item.id || `${item.title}-${item.course}`}`;
+}
+
+// The fields whose change counts as an update. A course leaves out "enrolled"
+// and "status" so a student's own enrolling doesn't flag it.
+function itemFingerprint(kind: TrackedKind, item: any) {
+  const fields: Record<TrackedKind, unknown[]> = {
+    assessment: [item.title, item.course, item.type, item.weight, item.posted, item.status, item.examDates || item.exam_dates || "", item.duration, item.examLink, item.instructions],
+    result: [item.midterm, item.final, item.grade],
+    exam: [item.title, item.course, item.duration, item.num_questions, item.instructions, item.start_time, item.end_time, item.exam_link],
+    course: [item.title, item.semester, item.teacherName, item.teacherEmail],
+    schedule: [item.course_title || item.course, item.day_of_week, item.start_time, item.end_time, item.teacher_name, item.venue, item.platform, item.meeting_link, item.notes],
+  };
+  return JSON.stringify(fields[kind]);
+}
+
+function getItemTitle(kind: ViewKind, item: any) {
+  if (kind === "result") return item.course;
+  if (kind === "schedule") return item.course_title || item.course;
+  if (kind === "notification") return item.title || "Notification";
+  return item.title;
+}
+
+// Exam links stay hidden until the exam is active, and assessment links until it is posted.
+function getItemLink(kind: ViewKind, item: any, examActive: boolean) {
+  let link: { href: string; label: string } | null = null;
+  if (kind === "assessment" && item.status === "Posted") link = { href: item.examLink, label: "Open Assessment" };
+  if (kind === "exam" && examActive) link = { href: item.exam_link, label: "Start Exam" };
+  if (kind === "schedule") link = { href: item.meeting_link, label: "Join Class" };
+  return link && /^https?:\/\//i.test(link.href || "") ? link : null;
+}
+
+function formatDateTime(value: unknown) {
+  return value ? new Date(value as string).toLocaleString() : "";
+}
+
+function getDetailRows(kind: ViewKind, item: any) {
+  const rowsByKind: Record<ViewKind, [string, unknown][]> = {
+    assessment: [
+      ["Course", item.course],
+      ["Type", item.type],
+      ["Weight", item.weight],
+      ["Status", item.status],
+      ["Posted", item.posted],
+      ["Exam Dates", item.examDates || item.exam_dates ? formatExamDateList(item.examDates || item.exam_dates) : ""],
+      ["Duration", item.duration ? `${item.duration} mins` : ""],
+      ["Instructions", item.instructions],
+    ],
+    result: [
+      ["Semester", item.semester],
+      ["Midterm", item.midterm],
+      ["Final", item.final],
+      ["Grade", item.grade],
+    ],
+    exam: [
+      ["Course", item.course],
+      ["Duration", `${item.duration || 60} mins`],
+      ["Questions", item.num_questions],
+      ["Starts", formatDateTime(item.start_time)],
+      ["Ends", formatDateTime(item.end_time)],
+      ["Instructions", item.instructions],
+    ],
+    course: [
+      ["Semester", item.semester],
+      ["Enrollment", item.enrolled ? "Enrolled" : "Not enrolled"],
+      ["Teacher", item.teacherName],
+      ["Teacher Email", item.teacherEmail],
+    ],
+    schedule: [
+      ["Day", item.day_of_week],
+      ["Time", `${item.start_time} — ${item.end_time}`],
+      ["Teacher", item.teacher_name],
+      ["Venue", item.venue],
+      ["Platform", item.platform],
+      ["Notes", item.notes],
+    ],
+    notification: [
+      ["Received", item.created_at ? formatDateTime(item.created_at) : item.time],
+    ],
+  };
+  return rowsByKind[kind]
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .map(([label, value]) => [label, String(value)] as [string, string]);
+}
+
+function ItemStatusBadge({ status }: { status: ItemStatus }) {
+  if (!status) return null;
+  return (
+    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${status === "New" ? "bg-primary text-primary-foreground" : "bg-accent/15 text-accent"}`}>
+      {status}
+    </span>
+  );
 }
 
 function readStoredExams() {

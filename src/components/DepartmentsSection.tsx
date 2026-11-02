@@ -1,7 +1,4 @@
-import { BookOpen, Mail, MessageCircle, Users, Phone } from "lucide-react";
-
-const WHATSAPP_NUMBER = "233550545403";
-const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Assalamu Alaikum, I would like to inquire about admission requirements.")}`;
+import { BookOpen, Mail, Users, Phone } from "lucide-react";
 
 const DepartmentsSection = () => {
   return (
@@ -48,10 +45,6 @@ const DepartmentsSection = () => {
                 <Mail size={14} className="text-primary" />
                 <span>allahulmustaaninstitute@gmail.com</span>
               </div>
-              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700">
-                <MessageCircle size={14} />
-                <span>Chat on WhatsApp</span>
-              </a>
             </div>
           </div>
 
@@ -77,13 +70,6 @@ const DepartmentsSection = () => {
               <p className="text-xs text-muted-foreground leading-relaxed">
                 <span className="font-semibold text-foreground">Application is FREE.</span> After admission, the semester fee will be notified, and the fee amount will depend on the semester you are in.
               </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 text-xs mt-5">
-              <a href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-full bg-green-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700">
-                <MessageCircle size={14} />
-                <span>Chat on WhatsApp</span>
-              </a>
             </div>
           </div>
         </div>

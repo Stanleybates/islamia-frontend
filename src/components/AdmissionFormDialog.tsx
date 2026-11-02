@@ -13,7 +13,6 @@ interface AdmissionFormDialogProps {
 const semesters = ["Semester 1 (Foundation)", "Semester 2 (Intermediate)", "Semester 3 (Advanced)", "Semester 4 (Specialization)"];
 const languageOptions = ["English", "Twi", "Hausa", "French", "Arabic"];
 
-const WHATSAPP_NUMBER = "233550545403";
 
 const AdmissionFormDialog = ({ open, onClose }: AdmissionFormDialogProps) => {
   const [step, setStep] = useState(1);
@@ -424,17 +423,6 @@ const AdmissionFormDialog = ({ open, onClose }: AdmissionFormDialogProps) => {
                 <p>1. Application review (FREE)</p>
                 <p>2. Semester fee will be notified after admission</p>
                 <p>3. Receive Index Number & student portal login</p>
-              </div>
-              <div className="mb-6">
-                <a
-                  href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Assalamu Alaikum, I just submitted my application to Allāhul Musta'ān Institute. My Application ID is " + assignedRegNumber + ". Please assist me.")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700"
-                >
-                  <MessageCircle size={16} />
-                  Chat with us on WhatsApp
-                </a>
               </div>
               <Button variant="default" onClick={onClose}>Close</Button>
             </div>
