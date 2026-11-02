@@ -372,19 +372,34 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
     ["schedule", studentSchedule],
   ];
 
-  // Load what this student has already viewed. On a device with no record yet,
-  // everything current counts as viewed so only later changes get flagged.
+  // Load what this student has already viewed (server first, so it follows them across devices).
+  // On a device and account with no record yet, everything current counts as viewed
+  // so only later changes get flagged.
   useEffect(() => {
     if (!dataLoaded || seenItems) return;
-    const stored = readSeenItems();
-    if (stored) {
-      setSeenItems(stored);
-      return;
-    }
-    const baseline: Record<string, string> = {};
-    trackedItems.forEach(([kind, items]) => items.forEach((item) => { baseline[itemKey(kind, item)] = itemFingerprint(kind, item); }));
-    writeSeenItems(baseline);
-    setSeenItems(baseline);
+    let cancelled = false;
+    (async () => {
+      const local = readSeenItems();
+      const server = await fetchSeenItemsFromServer();
+      if (cancelled) return;
+      if (server && Object.keys(server).length > 0) {
+        const merged = { ...(local || {}), ...server };
+        writeSeenItems(merged);
+        setSeenItems(merged);
+        return;
+      }
+      if (local) {
+        setSeenItems(local);
+        pushSeenItemsToServer(local);
+        return;
+      }
+      const baseline: Record<string, string> = {};
+      trackedItems.forEach(([kind, items]) => items.forEach((item) => { baseline[itemKey(kind, item)] = itemFingerprint(kind, item); }));
+      writeSeenItems(baseline);
+      setSeenItems(baseline);
+      pushSeenItemsToServer(baseline);
+    })();
+    return () => { cancelled = true; };
   }, [dataLoaded]);
 
   // Pick up newly posted or changed items whenever these tabs are opened
@@ -409,6 +424,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
       const next = { ...seenItems, [itemKey(kind, item)]: itemFingerprint(kind, item) };
       setSeenItems(next);
       writeSeenItems(next);
+      pushSeenItemsToServer({ [itemKey(kind, item)]: itemFingerprint(kind, item) });
     }
   };
 
@@ -1634,7 +1650,7 @@ const VIEW_LABELS: Record<ViewKind, string> = {
 
 function seenItemsStorageKey() {
   const session = JSON.parse(localStorage.getItem("ami_student_session") || "{}");
-  return `ami_seen_items_${session.index_number || session.indexNumber || session.regNumber || "student"}`;
+  return `ami_seen_v2_${session.index_number || session.indexNumber || session.regNumber || "student"}`;
 }
 
 function readSeenItems(): Record<string, string> | null {
@@ -1654,6 +1670,44 @@ function writeSeenItems(items: Record<string, string>) {
   }
 }
 
+function hashString(str: string) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+async function fetchSeenItemsFromServer(): Promise<Record<string, string> | null> {
+  try {
+    const sess = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
+    const res = await apiFetch(apiUrl('/api/student/seen-items'), { headers: { Authorization: 'Bearer ' + sess?.token } });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.items || null;
+  } catch { return null; }
+}
+
+async function pushSeenItemsToServer(items: Record<string, string>) {
+  try {
+    const sess = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
+    const entries = Object.entries(items);
+    for (let i = 0; i < entries.length; i += 60) {
+      const csrfToken = await getCsrfToken();
+      await apiFetch(apiUrl('/api/student/seen-items'), {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + sess?.token, 'x-csrf-token': csrfToken },
+        body: JSON.stringify({ items: Object.fromEntries(entries.slice(i, i + 60)) }),
+      });
+    }
+  } catch (e) { console.error(e); }
+}
+
 function itemKey(kind: TrackedKind, item: any) {
   if (kind === "result") return `result:${item.semester}|${item.course}`;
   return `${kind}:${item.id || `${item.title}-${item.course}`}`;
@@ -1669,7 +1723,7 @@ function itemFingerprint(kind: TrackedKind, item: any) {
     course: [item.title, item.semester, item.teacherName, item.teacherEmail],
     schedule: [item.course_title || item.course, item.day_of_week, item.start_time, item.end_time, item.teacher_name, item.venue, item.platform, item.meeting_link, item.notes],
   };
-  return JSON.stringify(fields[kind]);
+  return hashString(JSON.stringify(fields[kind]));
 }
 
 function getItemTitle(kind: ViewKind, item: any) {
