@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,7 +11,6 @@ import AdminLogin from "./pages/AdminLogin.tsx";
 import AdminSignup from "./pages/AdminSignup.tsx";
 import AdminForgot from "./pages/AdminForgot.tsx";
 import AdminPending from "./pages/AdminPending.tsx";
-import StudentLogin from "./pages/StudentLogin.tsx";
 import StudentSignup from "./pages/StudentSignup.tsx";
 import StudentForgot from "./pages/StudentForgot.tsx";
 import NotFound from "./pages/NotFound.tsx";
@@ -69,7 +68,7 @@ const App = () => {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/student" element={<StudentPortal />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
-            <Route path="/student/login" element={<StudentLogin />} />
+            <Route path="/student/login" element={<Navigate to="/student" replace />} />
             <Route path="/student/signup" element={<StudentSignup />} />
             <Route path="/student/forgot" element={<StudentForgot />} />
 
