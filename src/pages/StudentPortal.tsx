@@ -3,7 +3,7 @@ import apiClient from "@/lib/apiClient";
 import { apiUrl, apiFetch } from '@/lib/apiClient';
 import { getCsrfToken } from '@/lib/csrf';
 import { Link } from "react-router-dom";
-import { BookOpen, GraduationCap, Bell, User, LogOut, Home, Clock, Award, Eye, EyeOff, KeyRound, Phone, ClipboardList, FileText, CheckCircle2, CreditCard, Menu, X } from "lucide-react";
+import { BookOpen, GraduationCap, Bell, User, LogOut, Home, Clock, Award, Eye, EyeOff, KeyRound, Phone, ClipboardList, FileText, CheckCircle2, CreditCard, Menu, X, Download, Smartphone } from "lucide-react";
 import { jsPDF } from "jspdf";
 import useSessionTimeout from "@/hooks/useSessionTimeout";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import logo from "@/assets/logo.png";
 import studentBg from "@/assets/student-learning-bg.jpg";
 import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from "@/lib/semester-settings";
 import useDocumentTitle from "@/hooks/useDocumentTitle";
+import { useInstallApp, isStandalone } from "@/lib/installPrompt";
 
 
 
@@ -22,6 +23,8 @@ const StudentPortal = () => {
   useDocumentTitle("Student Portal | Allahul Musta'an Institute");
   const [feeStatus, setFeeStatus] = useState<{ semester: string | null; fee: number | null; alreadyPaid: boolean } | null>(null);
   const [feePaying, setFeePaying] = useState(false);
+  const installApp = useInstallApp();
+  const [showInstallPopup, setShowInstallPopup] = useState(false);
   const lastLoadedAtRef = useRef(0);
 
   const loadFeeStatus = async () => {
@@ -53,7 +56,7 @@ const StudentPortal = () => {
   };
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "courses" | "fees" | "assessments" | "results" | "notifications" | "timetable" | "security">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "courses" | "fees" | "assessments" | "results" | "notifications" | "timetable" | "security" | "install">("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showSecurityPassword, setShowSecurityPassword] = useState(false);
@@ -401,6 +404,26 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
   useEffect(() => {
     if (isLoggedIn && ["courses", "assessments", "results", "notifications", "timetable"].includes(activeTab) && Date.now() - lastLoadedAtRef.current > 30000) loadStudentData();
   }, [activeTab]);
+
+  // Offer to install the app once after login (only on phones/browsers that can install it)
+  useEffect(() => {
+    if (!isLoggedIn || !dataLoaded || isStandalone()) return;
+    if (!(installApp.canPrompt || installApp.ios)) return;
+    try { if (localStorage.getItem('ami_install_dismissed')) return; } catch {}
+    const t = setTimeout(() => setShowInstallPopup(true), 1500);
+    return () => clearTimeout(t);
+  }, [isLoggedIn, dataLoaded, installApp.canPrompt, installApp.ios]);
+
+  const dismissInstallPopup = () => {
+    try { localStorage.setItem('ami_install_dismissed', '1'); } catch {}
+    setShowInstallPopup(false);
+  };
+
+  const handleInstallClick = async () => {
+    const outcome = await installApp.promptInstall();
+    dismissInstallPopup();
+    if (outcome === 'accepted') toast.success('Installing the Student Portal...');
+  };
 
   const itemStatus = (kind: TrackedKind, item: any): ItemStatus => {
     if (!seenItems) return null;
@@ -846,6 +869,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                 { key: "notifications", label: "Notifications", icon: Bell, badge: portalNotifications.filter((n: any) => !n.read).length },
                 { key: "timetable", label: "Timetable", icon: Clock, badge: scheduleUpdates },
                 { key: "security", label: "Change Password", icon: KeyRound },
+                ...(isStandalone() ? [] : [{ key: "install", label: "Install App", icon: Smartphone }]),
               ].map((item) => (
                 <button
                   key={item.key}
@@ -1487,6 +1511,39 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
           </div>
         )}
 
+        {activeTab === "install" && (
+          <div className="space-y-4 max-w-2xl">
+            <div className="bg-card rounded-xl border border-border p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                  <Smartphone size={22} />
+                </div>
+                <div>
+                  <h3 className="font-heading text-lg font-semibold text-foreground">Install App</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Add the Student Portal to your home screen so it opens like an app.</p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+                {isStandalone() ? (
+                  <p>You are already using the installed app.</p>
+                ) : installApp.canPrompt ? (
+                  <Button className="gap-2" onClick={handleInstallClick}><Download size={16} /> Install App</Button>
+                ) : installApp.ios ? (
+                  <ol className="list-decimal pl-5 space-y-1">
+                    <li>Open this page in <strong>Safari</strong>.</li>
+                    <li>Tap the <strong>Share</strong> button at the bottom of the screen.</li>
+                    <li>Choose <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li>
+                  </ol>
+                ) : installApp.inApp ? (
+                  <p>Open this page in Chrome or Safari first, then come back here to install.</p>
+                ) : (
+                  <p>In your browser menu, tap <strong>Install app</strong> or <strong>Add to Home screen</strong>. If you already installed it, open it from your home screen.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === "security" && (
           <div className="space-y-4 max-w-2xl">
             <div className="bg-card rounded-xl border border-border p-5">
@@ -1554,6 +1611,32 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
           </div>
         </main>
       </div>
+
+      <Dialog open={showInstallPopup && !viewingItem} onOpenChange={(open) => { if (!open) dismissInstallPopup(); }}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-xl bg-card">
+          <DialogHeader className="text-left pr-6">
+            <div className="flex items-center gap-3 mb-1">
+              <img src={logo} alt="" className="w-12 h-12 object-contain" />
+              <DialogTitle className="font-heading text-lg leading-snug">Install the Student Portal</DialogTitle>
+            </div>
+            <DialogDescription>Add it to your home screen to open your courses, results and timetable faster, like an app.</DialogDescription>
+          </DialogHeader>
+          {installApp.canPrompt ? (
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" className="flex-1" onClick={dismissInstallPopup}>Not now</Button>
+              <Button className="flex-1 gap-2" onClick={handleInstallClick}><Download size={16} /> Install</Button>
+            </div>
+          ) : (
+            <div className="space-y-3 pt-1 text-sm text-muted-foreground">
+              <ol className="list-decimal pl-5 space-y-1">
+                <li>Tap the <strong>Share</strong> button in Safari.</li>
+                <li>Choose <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li>
+              </ol>
+              <Button variant="outline" className="w-full" onClick={dismissInstallPopup}>Not now</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!viewingItem} onOpenChange={(open) => { if (!open) setViewingItem(null); }}>
         <DialogContent className="w-[calc(100%-2rem)] max-h-[85vh] overflow-y-auto rounded-xl bg-card">
