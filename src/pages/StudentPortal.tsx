@@ -13,6 +13,7 @@ import logo from "@/assets/logo.png";
 import studentBg from "@/assets/student-learning-bg.jpg";
 import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from "@/lib/semester-settings";
 import useDocumentTitle from "@/hooks/useDocumentTitle";
+import usePrivacyCover from "@/hooks/usePrivacyCover";
 import { useInstallApp, isStandalone } from "@/lib/installPrompt";
 
 
@@ -404,6 +405,8 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
   useEffect(() => {
     if (isLoggedIn && ["courses", "assessments", "results", "notifications", "timetable"].includes(activeTab) && Date.now() - lastLoadedAtRef.current > 30000) loadStudentData();
   }, [activeTab]);
+
+  usePrivacyCover(isLoggedIn);
 
   // Offer to install the app once after login (only on phones/browsers that can install it)
   useEffect(() => {
