@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import apiClient from "@/lib/apiClient";
 import { apiUrl, apiFetch } from '@/lib/apiClient';
 import { getCsrfToken } from '@/lib/csrf';
@@ -22,6 +22,7 @@ const StudentPortal = () => {
   useDocumentTitle("Student Portal | Allahul Musta'an Institute");
   const [feeStatus, setFeeStatus] = useState<{ semester: string | null; fee: number | null; alreadyPaid: boolean } | null>(null);
   const [feePaying, setFeePaying] = useState(false);
+  const lastLoadedAtRef = useRef(0);
 
   const loadFeeStatus = async () => {
     try {
@@ -99,12 +100,14 @@ const StudentPortal = () => {
     setLoadingData(true);
     try {
       const headers: any = { Authorization: 'Bearer ' + token };
-      const [gradesRes, coursesRes, notifRes, assessmentsRes, gpaRes] = await Promise.all([
+      const [gradesRes, coursesRes, notifRes, assessmentsRes, gpaRes, examsRes, scheduleRes] = await Promise.all([
         apiFetch(apiUrl('/api/student/grades'), { headers }).then(r => r.ok ? r.json() : []),
         apiFetch(apiUrl('/api/student/courses'), { headers }).then(r => r.ok ? r.json() : []),
         apiFetch(apiUrl('/api/student/notifications'), { headers }).then(r => r.ok ? r.json() : []),
         apiFetch(apiUrl('/api/student/assessments'), { headers }).then(r => r.ok ? r.json() : []),
         apiFetch(apiUrl('/api/student/gpa'), { headers }).then(r => r.ok ? r.json() : { gpa: {}, cgpa: 0, totalCredits: 0 }),
+        apiFetch(apiUrl('/api/student/exams'), { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
+        apiFetch(apiUrl('/api/student/schedule'), { headers }).then(r => r.ok ? r.json() : []).catch(() => []),
       ]);
       if (Array.isArray(gradesRes)) {
         setStudentResults(gradesRes.map((g: any) => ({
@@ -131,17 +134,8 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
   setGpaData(gpaRes);
 }
 
-      // Fetch exams
-      try {
-        const examsRes = await apiFetch(apiUrl('/api/student/exams'), { headers }).then(r => r.ok ? r.json() : []);
-        if (Array.isArray(examsRes)) setStudentExams(examsRes);
-      } catch(e) { console.error('Exams fetch error:', e); }
-
-      // Fetch class schedule
-      try {
-        const scheduleRes = await apiFetch(apiUrl('/api/student/schedule'), { headers }).then(r => r.ok ? r.json() : []);
-        if (Array.isArray(scheduleRes)) setStudentSchedule(scheduleRes);
-      } catch(e) { console.error('Schedule fetch error:', e); }
+      if (Array.isArray(examsRes)) setStudentExams(examsRes);
+      if (Array.isArray(scheduleRes)) setStudentSchedule(scheduleRes);
       if (Array.isArray(coursesRes)) {
         setStudentCourses(coursesRes.map((c: any) => ({
           id: c.id,
@@ -154,6 +148,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
         })));
       }
       setDataLoaded(true);
+      lastLoadedAtRef.current = Date.now();
     } catch (e) { console.error(e); }
     setLoadingData(false);
   };
@@ -404,7 +399,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
 
   // Pick up newly posted or changed items whenever these tabs are opened
   useEffect(() => {
-    if (isLoggedIn && ["courses", "assessments", "results", "notifications", "timetable"].includes(activeTab)) loadStudentData();
+    if (isLoggedIn && ["courses", "assessments", "results", "notifications", "timetable"].includes(activeTab) && Date.now() - lastLoadedAtRef.current > 30000) loadStudentData();
   }, [activeTab]);
 
   const itemStatus = (kind: TrackedKind, item: any): ItemStatus => {
