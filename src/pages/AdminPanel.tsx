@@ -13,6 +13,11 @@ import useSessionTimeout from "@/hooks/useSessionTimeout";
 import { validateEmail } from "@/lib/validation";
 import { formatSemesterDate, readSemesterSettings, writeSemesterSettings } from "@/lib/semester-settings";
 import logo from "@/assets/logo.png";
+import { Smartphone } from "lucide-react";
+import { useInstallApp, isStandalone } from "@/lib/installPrompt";
+
+// The admin app has its own manifest; it is only active when the page was opened under /admin.
+const adminManifestActive = () => document.querySelector('link[rel="manifest"]')?.getAttribute("href") === "/manifest-admin.json";
 import adminBg from "@/assets/admin-bg.webp";
 import { supabase } from "@/integrations/supabase/client";
 import { apiUrl, apiFetch } from "@/lib/apiClient";
@@ -365,6 +370,30 @@ const AdminPanel = () => {
   const [appsLimit] = useState(20);
   const [appsTotal, setAppsTotal] = useState(0);
   const [showAddStudent, setShowAddStudent] = useState(false);
+  const installApp = useInstallApp();
+  const [showInstallPopup, setShowInstallPopup] = useState(false);
+
+  // Offer to install the admin app once per device, after login
+  useEffect(() => {
+    if (!isLoggedIn || isStandalone() || !adminManifestActive()) return;
+    if (!(installApp.canPrompt || installApp.ios)) return;
+    try { if (localStorage.getItem('ami_install_dismissed_admin')) return; } catch {}
+    const t = setTimeout(() => setShowInstallPopup(true), 2000);
+    return () => clearTimeout(t);
+  }, [isLoggedIn, installApp.canPrompt, installApp.ios]);
+
+  const dismissInstallPopup = () => {
+    try { localStorage.setItem('ami_install_dismissed_admin', '1'); } catch {}
+    setShowInstallPopup(false);
+  };
+
+  const handleInstallClick = async () => {
+    // Opened from another page? Reload on /admin so the browser sees the admin app.
+    if (!adminManifestActive()) { window.location.href = '/admin'; return; }
+    const outcome = await installApp.promptInstall();
+    dismissInstallPopup();
+    if (outcome === 'accepted') toast.success('Installing the Admin Portal...');
+  };
   const [editingStudent, setEditingStudent] = useState<{ id: string; name: string; semester: string } | null>(null);
   const [editStudentSaving, setEditStudentSaving] = useState(false);
   const [createdStudentInfo, setCreatedStudentInfo] = useState<{ name: string; indexNumber: string } | null>(null);
@@ -3484,9 +3513,63 @@ const exportData = async (type: string) => {
               </div>
             </div>
           )}
+          {showInstallPopup && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="bg-card rounded-2xl border border-border shadow-2xl p-6 max-w-sm w-full">
+                <div className="flex items-center gap-3 mb-2">
+                  <img src={logo} alt="" className="w-12 h-12 object-contain" />
+                  <h2 className="font-heading text-lg font-bold text-foreground leading-snug">Install the Admin Portal</h2>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">Add it to your home screen to open the admin panel faster, like an app.</p>
+                {installApp.canPrompt ? (
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={dismissInstallPopup}>Not now</Button>
+                    <Button className="flex-1 gap-2" onClick={handleInstallClick}><Download size={16} /> Install</Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3 text-sm text-muted-foreground">
+                    <ol className="list-decimal pl-5 space-y-1">
+                      <li>Tap the <strong>Share</strong> button in Safari.</li>
+                      <li>Choose <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li>
+                    </ol>
+                    <Button variant="outline" className="w-full" onClick={dismissInstallPopup}>Not now</Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === "settings" && (
             <div className="space-y-6 max-w-2xl">
               <h2 className="font-heading text-lg font-bold text-foreground">Settings</h2>
+              {!isStandalone() && (
+                <div className="bg-card rounded-xl border border-border p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-11 h-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                      <Smartphone size={22} />
+                    </div>
+                    <div>
+                      <h3 className="font-heading font-semibold text-foreground">Install App</h3>
+                      <p className="text-sm text-muted-foreground mt-1">Add the Admin Portal to your home screen so it opens like an app.</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+                    {installApp.canPrompt || !adminManifestActive() ? (
+                      <Button className="gap-2" onClick={handleInstallClick}><Download size={16} /> Install App</Button>
+                    ) : installApp.ios ? (
+                      <ol className="list-decimal pl-5 space-y-1">
+                        <li>Open this page in <strong>Safari</strong>.</li>
+                        <li>Tap the <strong>Share</strong> button at the bottom of the screen.</li>
+                        <li>Choose <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li>
+                      </ol>
+                    ) : installApp.inApp ? (
+                      <p>Open this page in Chrome or Safari first, then come back here to install.</p>
+                    ) : (
+                      <p>In your browser menu, tap <strong>Install app</strong> or <strong>Add to Home screen</strong>. If you already installed it, open it from your home screen.</p>
+                    )}
+                  </div>
+                </div>
+              )}
               {isSuperAdmin && (
                 <>
                   <div className="bg-card rounded-xl border border-border p-6 space-y-4">

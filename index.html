@@ -35,7 +35,14 @@
         "logo": "https://allahul-mustaan-institute.com/allahul%20musta'a.png"
       }
     </script>
-      <link rel="manifest" href="/manifest.json" />
+      <script>
+      (function () {
+        var l = document.createElement('link');
+        l.rel = 'manifest';
+        l.href = location.pathname.indexOf('/admin') === 0 ? '/manifest-admin.json' : '/manifest.json';
+        document.head.appendChild(l);
+      })();
+    </script>
     <meta name="theme-color" content="#19574d" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
