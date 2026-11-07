@@ -11,6 +11,7 @@ import { GraduationCap, X, Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 import AdmissionFormDialog from "@/components/AdmissionFormDialog";
 import { apiUrl } from "@/lib/apiClient";
+import { readSemesterSettings, writeSemesterSettings } from "@/lib/semester-settings";
 import useDocumentTitle from "@/hooks/useDocumentTitle";
 
 const Index = () => {
@@ -23,33 +24,52 @@ const Index = () => {
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isOpen, setIsOpen] = useState(false); // admission is currently open
   const [isClosed, setIsClosed] = useState(false); // admission has ended
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
-    // Fetch admission dates from backend
+    // Show the popup straight away from the last saved dates, then refresh them in the background.
+    const cached = readSemesterSettings();
+    const hadCache = !!(cached.admissionStart || cached.admissionEnd);
+    if (cached.admissionStart) setAdmissionStart(cached.admissionStart);
+    if (cached.admissionEnd) setAdmissionEnd(cached.admissionEnd);
+    if (hadCache) setSettingsLoaded(true);
+
+    let decided = false;
+    const decidePopup = (start: string, end: string) => {
+      if (decided) return;
+      decided = true;
+      const popupKey = 'ami_admission_popup_' + (start || 'none') + '_' + (end || 'none');
+      if (!sessionStorage.getItem(popupKey)) {
+        setShowPopup(true);
+        sessionStorage.setItem(popupKey, '1');
+      } else {
+        setShowBanner(true);
+      }
+    };
+
+    if (hadCache) decidePopup(cached.admissionStart, cached.admissionEnd);
+    // First ever visit: do not wait forever for a slow server
+    const timer = hadCache ? null : setTimeout(() => decidePopup('', ''), 1200);
+
     fetch(apiUrl('/api/admin/settings'))
       .then(r => r.ok ? r.json() : {})
       .then(d => {
         const start = d.admissionStart || d.admission_start || '';
         const end = d.admissionEnd || d.admission_end || '';
-        if (start) setAdmissionStart(start);
-        if (end) setAdmissionEnd(end);
-        // Show popup only once per session
-        const popupKey = 'ami_admission_popup_' + (start || 'none') + '_' + (end || 'none');
-        if (!sessionStorage.getItem(popupKey)) {
-          setShowPopup(true);
-          sessionStorage.setItem(popupKey, '1');
-        } else {
-          setShowBanner(true);
-        }
+        setAdmissionStart(start);
+        setAdmissionEnd(end);
+        writeSemesterSettings({ ...readSemesterSettings(), admissionStart: start, admissionEnd: end });
+        setSettingsLoaded(true);
+        if (timer) clearTimeout(timer);
+        decidePopup(start, end);
       })
       .catch(() => {
-        if (!sessionStorage.getItem('ami_admission_popup_none_none')) {
-          setShowPopup(true);
-          sessionStorage.setItem('ami_admission_popup_none_none', '1');
-        } else {
-          setShowBanner(true);
-        }
+        setSettingsLoaded(true);
+        if (timer) clearTimeout(timer);
+        decidePopup('', '');
       });
+
+    return () => { if (timer) clearTimeout(timer); };
   }, []);
 
   // Countdown logic
@@ -106,10 +126,12 @@ const Index = () => {
                 <Clock size={28} className="text-primary" />
               </div>
               <h2 className="font-heading text-2xl font-bold text-foreground mb-1">
-                {isClosed ? "Admission Closed" : isOpen ? "Admission is Open!" : "Admission Will Open Soon"}
+                {!settingsLoaded ? "Checking admission status..." : isClosed ? "Admission Closed" : isOpen ? "Admission is Open!" : "Admission Will Open Soon"}
               </h2>
               <p className="text-sm text-muted-foreground mb-6">
-                {isClosed
+                {!settingsLoaded
+                  ? "Please wait a moment."
+                  : isClosed
                   ? "Admission has closed. Stay tuned for the next cycle. Barakallahu feekum!"
                   : isOpen && admissionEnd
                   ? `Closes on ${new Date(admissionEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`
@@ -132,7 +154,11 @@ const Index = () => {
                   ))}
                 </div>
               )}
-              {isClosed ? (
+              {!settingsLoaded ? (
+                <div className="w-full text-center py-3 bg-muted text-muted-foreground rounded-lg text-sm">
+                  Loading...
+                </div>
+              ) : isClosed ? (
                 <div className="w-full text-center py-3 bg-destructive/10 text-destructive rounded-lg text-sm font-semibold">
                   Admission is Closed
                 </div>
