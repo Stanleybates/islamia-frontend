@@ -24,6 +24,30 @@ const StudentPortal = () => {
   useDocumentTitle("Student Portal | Allahul Musta'an Institute");
   const [feeStatus, setFeeStatus] = useState<{ semester: string | null; fee: number | null; alreadyPaid: boolean } | null>(null);
   const [feePaying, setFeePaying] = useState(false);
+  const [confirmUnenroll, setConfirmUnenroll] = useState<any | null>(null);
+  const [unenrolling, setUnenrolling] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  const toggleEnrollment = async (course: any) => {
+    const session = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
+    const token = session?.token;
+    const method = course.enrolled ? 'DELETE' : 'POST';
+    try {
+      const csrfToken = await getCsrfToken();
+      const res = await apiFetch(apiUrl(`/api/student/courses/${course.id}/enroll`), {
+        method,
+        credentials: 'include',
+        headers: { Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
+      });
+      if (res.ok) {
+        toast.success(course.enrolled ? 'Unenrolled successfully' : 'Enrolled successfully!');
+        loadStudentData();
+      } else {
+        const err = await res.json();
+        toast.error(err.message || 'Failed');
+      }
+    } catch (e) { toast.error('Network error'); }
+  };
   const installApp = useInstallApp();
   const [showInstallPopup, setShowInstallPopup] = useState(false);
   const lastLoadedAtRef = useRef(0);
@@ -102,6 +126,7 @@ const StudentPortal = () => {
     const s = JSON.parse(session);
     const token = s?.token;
     setLoadingData(true);
+    setLoadFailed(false);
     try {
       const headers: any = { Authorization: 'Bearer ' + token };
       const [gradesRes, coursesRes, notifRes, assessmentsRes, gpaRes, examsRes, scheduleRes] = await Promise.all([
@@ -153,7 +178,7 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
       }
       setDataLoaded(true);
       lastLoadedAtRef.current = Date.now();
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); setLoadFailed(true); }
     setLoadingData(false);
   };
 
@@ -901,6 +926,13 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
         <main className="flex-1 min-w-0 overflow-y-auto">
           <div className="container-max px-4 sm:px-6 lg:px-8 py-6">
 
+        {loadFailed && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <span>Could not load your data. Check your connection.</span>
+            <Button variant="outline" size="sm" onClick={() => loadStudentData()}>Retry</Button>
+          </div>
+        )}
+
         {activeTab === "dashboard" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -981,35 +1013,18 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
                     )}
                   </div>
                 </div>
-                <Button variant="outline" className="flex-shrink-0 w-full sm:w-auto sm:ml-auto gap-1 text-sm px-4 py-2" onClick={() => openItem("course", course)}>
-                  <Eye size={14} /> View
-                </Button>
-                <Button
-                  variant={course.enrolled ? "outline" : "gold"}
-                  className="flex-shrink-0 w-full sm:w-auto text-sm px-4 py-2"
-                  onClick={async () => {
-                    const session = JSON.parse(localStorage.getItem('ami_student_session') || '{}');
-                    const token = session?.token;
-                    const method = course.enrolled ? 'DELETE' : 'POST';
-                    try {
-                      const csrfToken = await getCsrfToken();
-                      const res = await apiFetch(apiUrl(`/api/student/courses/${course.id}/enroll`), {
-                        method,
-                        credentials: 'include',
-                        headers: { Authorization: 'Bearer ' + token, 'x-csrf-token': csrfToken },
-                      });
-                      if (res.ok) {
-                        toast.success(course.enrolled ? 'Unenrolled successfully' : 'Enrolled successfully!');
-                        loadStudentData();
-                      } else {
-                        const err = await res.json();
-                        toast.error(err.message || 'Failed');
-                      }
-                    } catch(e) { toast.error('Network error'); }
-                  }}
-                >
-                  {course.enrolled ? 'Unenroll' : 'Enroll'}
-                </Button>
+                <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+                  <Button variant="outline" className="flex-1 sm:flex-none gap-1 text-sm px-4 py-2" onClick={() => openItem("course", course)}>
+                    <Eye size={14} /> View
+                  </Button>
+                  <Button
+                    variant={course.enrolled ? "outline" : "gold"}
+                    className={"flex-1 sm:flex-none text-sm px-4 py-2" + (course.enrolled ? " text-destructive hover:text-destructive" : "")}
+                    onClick={() => (course.enrolled ? setConfirmUnenroll(course) : toggleEnrollment(course))}
+                  >
+                    {course.enrolled ? 'Unenroll' : 'Enroll'}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -1638,6 +1653,33 @@ if (gpaRes && typeof gpaRes.cgpa === "number") {
               <Button variant="outline" className="w-full" onClick={dismissInstallPopup}>Not now</Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmUnenroll} onOpenChange={(open) => { if (!open && !unenrolling) setConfirmUnenroll(null); }}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-xl bg-card">
+          <DialogHeader className="text-left pr-6">
+            <DialogTitle className="font-heading text-lg">Unenroll from this course?</DialogTitle>
+            <DialogDescription>
+              {confirmUnenroll?.title} ({confirmUnenroll?.semester}) will be removed from your registered courses.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" disabled={unenrolling} onClick={() => setConfirmUnenroll(null)}>Keep course</Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={unenrolling}
+              onClick={async () => {
+                setUnenrolling(true);
+                await toggleEnrollment(confirmUnenroll);
+                setUnenrolling(false);
+                setConfirmUnenroll(null);
+              }}
+            >
+              {unenrolling ? 'Removing...' : 'Unenroll'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
